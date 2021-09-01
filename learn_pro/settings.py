@@ -75,8 +75,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'learn_pro.wsgi.application'
 
-AUTH_USER_MODEL = 'users.CustomUser'
-
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
