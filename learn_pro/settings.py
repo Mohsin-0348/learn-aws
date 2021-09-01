@@ -146,3 +146,13 @@ MEDIA_URL = '/media/'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Email config
+SENDGRID_API_KEY = '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'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.sendgrid.net'
+EMAIL_HOST_USER = 'apikey'
+EMAIL_HOST_PASSWORD = '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'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'jim.asd03@gmail.com'
