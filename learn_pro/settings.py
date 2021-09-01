@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 
 import os
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,10 +22,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--g6q^zz2j$=3=2ka%cfn#k!*03#7l61&c=i%#lbn5aixmm*!+$'
+SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', False)
 
 ALLOWED_HOSTS = ['*']
 
@@ -148,11 +149,21 @@ MEDIA_URL = '/media/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email config
-SENDGRID_API_KEY = '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'
+SENDGRID_API_KEY = config('SENDGRID_API_KEY')
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.sendgrid.net'
 EMAIL_HOST_USER = 'apikey'
-EMAIL_HOST_PASSWORD = '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'
+EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'jim.asd03@gmail.com'
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', 'jim.asd03@gmail.com')
+
+# CELERY STUFF
+# Celery Config
+BROKER_URL = 'redis://localhost:6379'
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'

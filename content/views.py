@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from learn_pro.mail import send_mail
+from learn_pro.tasks import send_hello_mail
 
 
 # @login_required
@@ -8,5 +8,5 @@ def hello(request):
     context = {}
     if request.GET.get('viewer'):
         context['viewer'] = request.GET['viewer']
-        send_mail('Hello', "This is a test mail", request.GET['viewer'])
+        send_hello_mail.delay(request.GET['viewer'])
     return render(request, 'hello.html', context)
