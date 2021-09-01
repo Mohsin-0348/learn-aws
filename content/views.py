@@ -1,5 +1,5 @@
-from django.shortcuts import render, HttpResponse
+from django.shortcuts import render
 
 
 def hello(request):
-    return HttpResponse("<center><h1>Hello World</h1></center>")
+    return render(request, 'hello.html')
