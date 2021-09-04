@@ -8,9 +8,21 @@ https://docs.djangoproject.com/en/3.2/howto/deployment/asgi/
 """
 
 import os
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.auth import AuthMiddlewareStack
+from django.urls import path
 
-from django.core.asgi import get_asgi_application
+# local imports
+from .schema import MyGraphqlWsConsumer
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'learn_pro.settings')
 
-application = get_asgi_application()
+ws_patterns = [
+    path('graphql/', MyGraphqlWsConsumer.as_asgi()),
+]
+
+application = ProtocolTypeRouter({
+    "websocket": AuthMiddlewareStack(URLRouter(
+        ws_patterns
+    ))
+})

@@ -33,12 +33,14 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'graphene_django',
 
     'content',
     # 'users',
@@ -75,6 +77,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'learn_pro.wsgi.application'
+
+ASGI_APPLICATION = 'learn_pro.asgi.application'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
@@ -147,6 +157,11 @@ MEDIA_URL = '/media/'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Configuration for Graphene.
+GRAPHENE = {
+    'SCHEMA': 'learn_pro.schema.schema',
+}
 
 # Email config
 SENDGRID_API_KEY = config('SENDGRID_API_KEY')
