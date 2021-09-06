@@ -25,4 +25,5 @@ urlpatterns = [
     path('', include('content.urls')),
     path("graphql/", GraphQLView.as_view(graphiql=True, schema=schema)),
 ]
+urlpatterns = urlpatterns + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
