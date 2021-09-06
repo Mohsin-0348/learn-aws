@@ -28,7 +28,7 @@ class SendData(graphene.Mutation):
         print(input['name_input'])
         if 'room_id' in input:
             DemoSubscription.broadcast(payload=input['name_input'], group=input['room_id'])
-        return SendData(success=True, data=None)
+        return SendData(success=True, data=input['name_input'])
 
 
 class Query(
