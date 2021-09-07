@@ -100,11 +100,11 @@ CHANNEL_LAYERS = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'learn_aws',
-        'USER': 'postgres',
-        'PASSWORD': 'jim12345',
-        'HOST': 'localhost',
-        'PORT': '5432'
+        'NAME': config('DB_NAME', None),
+        'USER': config('DB_USER', 'postgres'),
+        'PASSWORD': config('DB_PASSWORD', None),
+        'HOST': config('DB_HOST', 'localhost'),
+        'PORT': config('DB_PORT', '5432')
     }
 }
 
