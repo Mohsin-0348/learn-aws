@@ -32,6 +32,11 @@ class Subscription(
 schema = graphene.Schema(query=Query, mutation=Mutation, subscription=Subscription)
 
 
+def set_middleware(next, root, info, **args):
+    return_value = next(root, info, **args)
+    return return_value
+
+
 def online_status_update(user, is_online=False):
     user.is_online = is_online
     user.save()
@@ -52,3 +57,4 @@ class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
             print("[Disconnected]...", f"<{self.scope['user'].id}>")
 
     schema = schema
+    middleware = [set_middleware]
