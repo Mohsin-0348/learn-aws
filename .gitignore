@@ -1,5 +1,7 @@
 # learn-aws
 
+static.admin
+static.graphene_django
 *.pyc
 db.sqlite3
 .idea
