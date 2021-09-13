@@ -29,7 +29,7 @@ CLIENT_KEY = config('CLIENT_KEY', None)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [config('ALLOWED_HOSTS', '*')]
 
 
 # Application definition
