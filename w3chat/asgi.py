@@ -8,6 +8,7 @@ https://docs.djangoproject.com/en/3.2/howto/deployment/asgi/
 """
 
 import os
+import django
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.urls import path
 
@@ -15,7 +16,9 @@ from django.urls import path
 from .schema import MyGraphqlWsConsumer
 from .middlewares import TokenMiddleware
 
-# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'w3chat.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'w3chat.settings')
+
+django.setup()
 
 ws_patterns = [
     path('graphql/', MyGraphqlWsConsumer.as_asgi()),
