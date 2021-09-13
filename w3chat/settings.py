@@ -97,10 +97,20 @@ AUTH_USER_MODEL = 'users.User'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': config('ENGINE', 'django.db.backends.postgresql_psycopg2'),
+        'NAME': config('NAME', 'chat_test'),
+        'USER': config('DB_USER', 'postgres'),
+        'PASSWORD': config("PASSWORD", 'jim12345'),
+        'HOST': config('HOST', 'localhost'),
+        'PORT': config('PORT', '')
     }
 }
 
