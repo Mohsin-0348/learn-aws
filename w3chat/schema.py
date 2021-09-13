@@ -33,6 +33,7 @@ schema = graphene.Schema(query=Query, mutation=Mutation, subscription=Subscripti
 
 
 def set_middleware(next, root, info, **args):
+    print("set", True)
     return_value = next(root, info, **args)
     return return_value
 
