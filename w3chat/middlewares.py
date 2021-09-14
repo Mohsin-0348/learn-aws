@@ -36,16 +36,16 @@ class W3AuthMiddleware(object):
 class TokenMiddleware(BaseMiddleware):
 
     def __init__(self, inner):
-        print(1, inner)
+        print(1, inner, flush=True)
         self.inner = inner
 
     async def __call__(self, scope, receive, send):
         try:
-            print(True)
+            print(True, flush=True)
             token_key = (dict((x.split('=') for x in scope['query_string'].decode().split("&")))).get('token', None)
-            print(2, token_key)
+            print(2, token_key, flush=True)
         except ValueError:
-            print(3, False)
+            print(3, False, flush=True)
             token_key = None
         scope['user'] = None if token_key is None else await get_user(token_key)
         return await super().__call__(scope, receive, send)
