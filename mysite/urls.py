@@ -13,10 +13,21 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
+from django.views.decorators.csrf import csrf_exempt
+from graphene_file_upload.django import FileUploadGraphQLView
+
+from users.views import EmailVerify
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include("chat.urls")),
+    path('graphql/', csrf_exempt(FileUploadGraphQLView.as_view(graphiql=True))),
+    path('verify/<token>/', EmailVerify.as_view(), name='email_verify'),
 ]
+
+urlpatterns = urlpatterns + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+urlpatterns = urlpatterns + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

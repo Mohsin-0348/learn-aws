@@ -23,6 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY', None)
+CLIENT_KEY = config('CLIENT_KEY', None)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -40,6 +41,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'graphene_django',
+
+    'users',
 
     'chat',
 ]
@@ -59,7 +63,9 @@ ROOT_URLCONF = 'mysite.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            os.path.join(BASE_DIR, 'templates'),
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -86,26 +92,28 @@ CHANNEL_LAYERS = {
     },
 }
 
+# Custom auth user
+AUTH_USER_MODEL = 'users.User'
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 # DATABASES = {
 #     'default': {
-#         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#         'NAME': 'test',
-#         'USER': 'postgres',
-#         'PASSWORD': 'jim12345',
-#         'HOST': 'localhost',
-#         'PORT': ''
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'test',
+        'USER': 'postgres',
+        'PASSWORD': 'jim12345',
+        'HOST': 'localhost',
+        'PORT': ''
+    }
+}
 
 
 # Password validation
@@ -156,6 +164,15 @@ MEDIA_URL = '/media/'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+DB_PREFIX = 'w3chat'
+
+GRAPHENE = {
+    'SCHEMA': 'mysite.schema.schema',
+    'MIDDLEWARE': [
+        'mysite.middlewares.W3AuthMiddleware'
+    ]
+}
 
 # mail config
 SENDGRID_API_KEY = config('SENDGRID_API_KEY', None)

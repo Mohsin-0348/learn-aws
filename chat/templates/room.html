@@ -23,7 +23,7 @@
         );
 
         chatSocket.onopen = function(e) {
-            console.log('Chat socket connected.');
+            console.log('Chat socket connected to ' + window.location.host);
         };
 
         chatSocket.onmessage = function(e) {
