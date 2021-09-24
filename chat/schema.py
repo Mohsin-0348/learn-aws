@@ -15,8 +15,8 @@ from mysite.permissions import is_admin_user, is_authenticated, is_client_reques
 from users.models import UnitOfHistory
 from users.choices import IdentifierBaseChoice
 
-from .filters import ConversationFilters, MessageFilters, ParticipantFilters
-from .models import Conversation, ChatMessage, Participant
+from chat.filters import ConversationFilters, MessageFilters, ParticipantFilters
+from chat.models import Conversation, ChatMessage, Participant
 
 User = django.contrib.auth.get_user_model()
 

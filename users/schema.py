@@ -9,12 +9,12 @@ from graphql import GraphQLError
 
 import graphene
 
-from .choices import RoleChoice, IdentifierBaseChoice
-from .filters import UserFilters, LogsFilters, ClientFilters
-from .forms import UserRegistrationForm, ClientForm, ClientEmployeeForm
-from .login_backend import signup
-from .models import ResetPassword, Client, UnitOfHistory
-from .tasks import send_password_reset_mail
+from users.choices import RoleChoice, IdentifierBaseChoice
+from users.filters import UserFilters, LogsFilters, ClientFilters
+from users.forms import UserRegistrationForm, ClientForm, ClientEmployeeForm
+from users.login_backend import signup
+from users.models import ResetPassword, Client, UnitOfHistory
+from users.tasks import send_password_reset_mail
 from mysite.permissions import is_authenticated, is_admin_user
 from mysite.authentication import TokenManager
 from mysite.count_connection import CountConnection

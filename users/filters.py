@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 import django_filters as filters
 
 from bases.filters import BaseFilters
-from .models import UnitOfHistory, Client
+from users.models import UnitOfHistory, Client
 
 User = get_user_model()
 
