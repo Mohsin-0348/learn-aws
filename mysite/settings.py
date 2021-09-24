@@ -41,9 +41,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'graphene_django',
+    # 'graphene_django',
 
-    'users',
+    # 'users',
 
     'chat',
 ]
@@ -167,90 +167,90 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 DB_PREFIX = 'w3chat'
 
-GRAPHENE = {
-    'SCHEMA': 'mysite.schema.schema',
-    'MIDDLEWARE': [
-        'mysite.middlewares.W3AuthMiddleware'
-    ]
-}
+# GRAPHENE = {
+#     'SCHEMA': 'mysite.schema.schema',
+#     'MIDDLEWARE': [
+#         'mysite.middlewares.W3AuthMiddleware'
+#     ]
+# }
 
 # mail config
-SENDGRID_API_KEY = config('SENDGRID_API_KEY', None)
-EMAIL_HOST = 'smtp.sendgrid.net'
-EMAIL_HOST_USER = 'apikey'
-EMAIL_PORT = 587
-EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', None)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# SENDGRID_API_KEY = config('SENDGRID_API_KEY', None)
+# EMAIL_HOST = 'smtp.sendgrid.net'
+# EMAIL_HOST_USER = 'apikey'
+# EMAIL_PORT = 587
+# EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
+# EMAIL_USE_TLS = True
+# DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', None)
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 # CELERY STUFF
 # Celery Config
-BROKER_URL = 'redis://localhost:6379'
-CELERY_BROKER_URL = 'redis://localhost:6379'
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
-CELERY_ACCEPT_CONTENT = ['application/json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+# BROKER_URL = 'redis://localhost:6379'
+# CELERY_BROKER_URL = 'redis://localhost:6379'
+# CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+# CELERY_ACCEPT_CONTENT = ['application/json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+# CELERY_TIMEZONE = 'UTC'
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'django.server': {
-            '()': 'django.utils.log.ServerFormatter',
-            'format': '[%(server_time)s] %(message)s',
-        },
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'filters': {
-        'require_debug_true': {
-            '()': 'django.utils.log.RequireDebugTrue',
-        },
-    },
-    'handlers': {
-        'console': {
-            'level': 'INFO',
-            # 'filters': ['require_debug_true'],
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple'
-        },
-        'django.server': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'django.server',
-        },
-        'mail_admins': {
-            'level': 'ERROR',
-            'class': 'django.utils.log.AdminEmailHandler',
-        }
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'propagate': True,
-        },
-        'django.server': {
-            'handlers': ['django.server'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'django.request': {
-            'handlers': ['mail_admins'],
-            'level': 'ERROR',
-            'propagate': False,
-        },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'INFO'
-        }
-    }
-}
+# LOGGING = {
+#     'version': 1,
+#     'disable_existing_loggers': False,
+#     'formatters': {
+#         'django.server': {
+#             '()': 'django.utils.log.ServerFormatter',
+#             'format': '[%(server_time)s] %(message)s',
+#         },
+#         'verbose': {
+#             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+#             'style': '{',
+#         },
+#         'simple': {
+#             'format': '{levelname} {message}',
+#             'style': '{',
+#         },
+#     },
+#     'filters': {
+#         'require_debug_true': {
+#             '()': 'django.utils.log.RequireDebugTrue',
+#         },
+#     },
+#     'handlers': {
+#         'console': {
+#             'level': 'INFO',
+#             # 'filters': ['require_debug_true'],
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'simple'
+#         },
+#         'django.server': {
+#             'level': 'DEBUG',
+#             'class': 'logging.StreamHandler',
+#             'formatter': 'django.server',
+#         },
+#         'mail_admins': {
+#             'level': 'ERROR',
+#             'class': 'django.utils.log.AdminEmailHandler',
+#         }
+#     },
+#     'loggers': {
+#         'django': {
+#             'handlers': ['console'],
+#             'propagate': True,
+#         },
+#         'django.server': {
+#             'handlers': ['django.server'],
+#             'level': 'DEBUG',
+#             'propagate': False,
+#         },
+#         'django.request': {
+#             'handlers': ['mail_admins'],
+#             'level': 'ERROR',
+#             'propagate': False,
+#         },
+#         'django.db.backends': {
+#             'handlers': ['console'],
+#             'level': 'INFO'
+#         }
+#     }
+# }
