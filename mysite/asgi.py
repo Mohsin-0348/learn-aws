@@ -17,7 +17,6 @@ from django.urls import re_path, path
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 
 from chat import consumers
-from mysite.schema import MyGraphqlWsConsumer
 from mysite.middlewares import TokenMiddleware
 
 
