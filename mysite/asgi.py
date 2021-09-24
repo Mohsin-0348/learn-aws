@@ -14,11 +14,12 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 from django.urls import re_path, path
 
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
+
 from chat import consumers
 from mysite.schema import MyGraphqlWsConsumer
 from mysite.middlewares import TokenMiddleware
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 
 websocket_urlpatterns = [
     re_path(r'chat/(?P<room_name>\w+)/$', consumers.ChatConsumer.as_asgi()),
