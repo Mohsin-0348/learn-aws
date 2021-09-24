@@ -15,8 +15,8 @@ from django.core.asgi import get_asgi_application
 from django.urls import re_path, path
 
 from chat import consumers
-# from .schema import MyGraphqlWsConsumer
-# from .middlewares import TokenMiddleware
+from mysite.schema import MyGraphqlWsConsumer
+from mysite.middlewares import TokenMiddleware
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 
