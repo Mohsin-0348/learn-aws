@@ -176,24 +176,24 @@ GRAPHENE = {
 }
 
 # mail config
-# SENDGRID_API_KEY = config('SENDGRID_API_KEY', None)
-# EMAIL_HOST = 'smtp.sendgrid.net'
-# EMAIL_HOST_USER = 'apikey'
-# EMAIL_PORT = 587
-# EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
-# EMAIL_USE_TLS = True
-# DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', None)
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+SENDGRID_API_KEY = config('SENDGRID_API_KEY', None)
+EMAIL_HOST = 'smtp.sendgrid.net'
+EMAIL_HOST_USER = 'apikey'
+EMAIL_PORT = 587
+EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', None)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 # CELERY STUFF
 # Celery Config
-# BROKER_URL = 'redis://localhost:6379'
-# CELERY_BROKER_URL = 'redis://localhost:6379'
-# CELERY_RESULT_BACKEND = CELERY_BROKER_URL
-# CELERY_ACCEPT_CONTENT = ['application/json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
-# CELERY_TIMEZONE = 'UTC'
+BROKER_URL = 'redis://localhost:6379'
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
 
 # LOGGING = {
 #     'version': 1,
