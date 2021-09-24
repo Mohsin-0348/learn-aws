@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 'graphene_django',
+    'graphene_django',
 
     'users',
 
@@ -167,12 +167,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 DB_PREFIX = 'w3chat'
 
-# GRAPHENE = {
-#     'SCHEMA': 'mysite.schema.schema',
-#     'MIDDLEWARE': [
-#         'mysite.middlewares.W3AuthMiddleware'
-#     ]
-# }
+# graphene config
+GRAPHENE = {
+    'SCHEMA': 'mysite.schema.schema',
+    'MIDDLEWARE': [
+        'mysite.middlewares.W3AuthMiddleware'
+    ]
+}
 
 # mail config
 # SENDGRID_API_KEY = config('SENDGRID_API_KEY', None)
