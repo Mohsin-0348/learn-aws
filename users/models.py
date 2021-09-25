@@ -93,6 +93,12 @@ class Client(BaseModel):
 
 
 class UnitOfHistory(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="performer"
+    )  # this user will be action performer.
     action = models.CharField(
         max_length=255,
         blank=True,
