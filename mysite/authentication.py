@@ -141,12 +141,12 @@ class ClientAuthentication:
         decoded_data = TokenManager.decode_client_token(token)
         if not decoded_data:
             return None
-        try:
-            private_key = rsa.PrivateKey(int(N), int(E), int(D), int(P), int(Q))
-            decoded_data = rsa.decrypt(eval(decoded_data['data']), private_key).decode()
-            decoded_data = json.loads(decoded_data)
-        except Exception as e:
-            return None
+        # try:
+        #     private_key = rsa.PrivateKey(int(N), int(E), int(D), int(P), int(Q))
+        #     decoded_data = rsa.decrypt(eval(decoded_data['data']), private_key).decode()
+        #     decoded_data = json.loads(decoded_data)
+        # except Exception as e:
+        #     return None
 
         return decoded_data
 
@@ -160,12 +160,12 @@ class ClientAuthentication:
         if not decoded:
             return None
 
-        try:
-            private_key = rsa.PrivateKey(int(N), int(E), int(D), int(P), int(Q))
-            decoded = rsa.decrypt(eval(decoded['data']), private_key).decode()
-            decoded = json.loads(decoded)
-        except Exception as e:
-            return None
+        # try:
+        #     private_key = rsa.PrivateKey(int(N), int(E), int(D), int(P), int(Q))
+        #     decoded = rsa.decrypt(eval(decoded['data']), private_key).decode()
+        #     decoded = json.loads(decoded)
+        # except Exception as e:
+        #     return None
 
         return decoded
 
