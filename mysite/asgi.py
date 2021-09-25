@@ -22,7 +22,7 @@ from mysite.middlewares import TokenMiddleware
 
 websocket_urlpatterns = [
     re_path(r'chat/(?P<room_name>\w+)/$', consumers.ChatConsumer.as_asgi()),
-    # path('graphql/', MyGraphqlWsConsumer.as_asgi()),
+    path('graphql/', consumers.MyGraphqlWsConsumer.as_asgi()),
 ]
 
 application = ProtocolTypeRouter({
