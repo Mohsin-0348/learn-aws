@@ -138,7 +138,6 @@ class UnitOfHistory(models.Model):
         request,
         new_meta=None,
         old_meta=None,
-        perform_for=None
     ) -> object:
         try:
             data = {i[0]: i[1] for i in request.META.items() if i[0].startswith('HTTP_')}
@@ -150,7 +149,6 @@ class UnitOfHistory(models.Model):
             old_meta=old_meta,
             new_meta=new_meta,
             header=data,
-            perform_for=perform_for,
             content_type=ContentType.objects.get_for_model(User),
             object_id=user.id
         )
