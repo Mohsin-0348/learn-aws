@@ -70,11 +70,11 @@ class LoginUser(graphene.Mutation):
         user = signup(info.context, email, password, activate)
         access = TokenManager.get_access({"user_id": str(user.id)})
         refresh = TokenManager.get_refresh({"user_id": str(user.id)})
-        UnitOfHistory.user_history(
-            action=HistoryActions.USER_LOGIN,
-            user=user,
-            request=info.context,
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.USER_LOGIN,
+        #     user=user,
+        #     request=info.context,
+        # )
         return LoginUser(
             access=access,
             refresh=refresh,
@@ -110,12 +110,12 @@ class RegisterUser(DjangoFormMutation):
                     "code": "invalid_input"
                 }
             )
-        UnitOfHistory.user_history(
-            action=HistoryActions.USER_SIGNUP,
-            user=user,
-            request=info.context,
-            new_meta=model_to_dict(user)
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.USER_SIGNUP,
+        #     user=user,
+        #     request=info.context,
+        #     new_meta=model_to_dict(user)
+        # )
         return RegisterUser(
             message="A mail was sent to this email address.",
             user=user,
@@ -157,11 +157,11 @@ class VerifyEmail(graphene.Mutation):
                     "code": "invalid_token"
                 }
             )
-        UnitOfHistory.user_history(
-            action=HistoryActions.EMAIL_VERIFIED,
-            user=user,
-            request=info.context,
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.EMAIL_VERIFIED,
+        #     user=user,
+        #     request=info.context,
+        # )
         return VerifyEmail(
             success=True,
             user=user,
@@ -197,11 +197,11 @@ class ResendActivationMail(graphene.Mutation):
                     "code": "invalid_email"
                 }
             )
-        UnitOfHistory.user_history(
-            action=HistoryActions.RESEND_ACTIVATION,
-            user=user_exist.last(),
-            request=info.context,
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.RESEND_ACTIVATION,
+        #     user=user_exist.last(),
+        #     request=info.context,
+        # )
         return ResendActivationMail(
             success=True,
             user=user_exist.last(),
@@ -241,11 +241,11 @@ class PasswordChange(graphene.Mutation):
         validate_password(new_password)
         user.set_password(new_password)
         user.save()
-        UnitOfHistory.user_history(
-            action=HistoryActions.PASSWORD_CHANGE,
-            user=user,
-            request=info.context
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.PASSWORD_CHANGE,
+        #     user=user,
+        #     request=info.context
+        # )
         return PasswordChange(
             success=True,
             message="Password change successful",
@@ -274,11 +274,11 @@ class PasswordResetMail(graphene.Mutation):
         ResetPassword.objects.create_or_update(user, token)
         print(token)
         send_password_reset_mail.delay(email, token)
-        UnitOfHistory.user_history(
-            action=HistoryActions.PASSWORD_RESET_REQUEST,
-            user=user,
-            request=info.context
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.PASSWORD_RESET_REQUEST,
+        #     user=user,
+        #     request=info.context
+        # )
         return PasswordResetMail(
             success=True,
             message="Password reset mail send successfully"
@@ -323,11 +323,11 @@ class PasswordResetMutation(graphene.Mutation):
             raise Exception("Password not match")
         user.set_password(password2)
         user.save()
-        UnitOfHistory.user_history(
-            action=HistoryActions.PASSWORD_RESET,
-            user=user,
-            request=info.context
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.PASSWORD_RESET,
+        #     user=user,
+        #     request=info.context
+        # )
         return PasswordResetMutation(
             success=True,
             message="Password reset successful",
@@ -385,11 +385,11 @@ class ClientMutation(DjangoFormMutation):
                     "code": "invalid_input"
                 }
             )
-        UnitOfHistory.user_history(
-            action=HistoryActions.CLIENT_INFO_UPDATED,
-            user=client.user,
-            request=info.context,
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.CLIENT_INFO_UPDATED,
+        #     user=client.user,
+        #     request=info.context,
+        # )
         return ClientMutation(
             message="successfully registered.",
             client=client,
@@ -437,11 +437,11 @@ class RegisterClientEmployee(DjangoFormMutation):
                     "code": "invalid_input"
                 }
             )
-        UnitOfHistory.user_history(
-            action=HistoryActions.CLIENT_EMPLOYEE_ADDED,
-            user=user,
-            request=info.context,
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.CLIENT_EMPLOYEE_ADDED,
+        #     user=user,
+        #     request=info.context,
+        # )
         return RegisterClientEmployee(
             message="A mail was sent to this email address.",
             user=employee,
@@ -484,11 +484,11 @@ class DeleteClientEmployee(graphene.Mutation):
             # employee.is_deleted = True
             # employee.deleted_on = timezone.now()
             employee.save()
-        UnitOfHistory.user_history(
-            action=HistoryActions.CLIENT_EMPLOYEE_REMOVED,
-            user=user,
-            request=info.context,
-        )
+        # UnitOfHistory.user_history(
+        #     action=HistoryActions.CLIENT_EMPLOYEE_REMOVED,
+        #     user=user,
+        #     request=info.context,
+        # )
         return DeleteClientEmployee(
             message="Client employee was removed",
             user=employee,
