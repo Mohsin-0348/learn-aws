@@ -113,8 +113,8 @@ class ClientAuthentication:
             return None
         client = self.get_client(data['client_id'])
         participant = None
-        if client:
-            participant = self.get_participant(client, data['user_id'])
+        if client and data.get('user_id') and data.get('username'):
+            participant = self.get_participant(client, data['user_id'], data['username'])
         return client, participant
 
     def channel_auth(self):
