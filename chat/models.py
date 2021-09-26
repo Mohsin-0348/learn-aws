@@ -18,7 +18,7 @@ class Participant(models.Model):
     )  # generate unique participant-id.
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING)  # client-info
     name = models.CharField(max_length=32)  # will provided from client-app
-    user_id = models.CharField(max_length=32)  # will provided from client-app
+    user_id = models.CharField(max_length=128)  # will provided from client-app
     is_online = models.BooleanField(default=False)
     last_seen = models.DateTimeField(auto_now=True)
 

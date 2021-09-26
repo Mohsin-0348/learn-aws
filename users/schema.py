@@ -481,8 +481,8 @@ class DeleteClientEmployee(graphene.Mutation):
             user.client_admin.first().employee.remove(employee)
             employee.is_active = False
             employee.deactivation_reason = None
-            # employee.is_deleted = True
-            # employee.deleted_on = timezone.now()
+            employee.is_deleted = True
+            employee.deleted_on = timezone.now()
             employee.save()
         # UnitOfHistory.user_history(
         #     action=HistoryActions.CLIENT_EMPLOYEE_REMOVED,

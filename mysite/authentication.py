@@ -4,6 +4,7 @@ from django.utils import timezone
 import jwt
 import rsa
 import json
+import uuid
 from decouple import config
 
 from users.models import Client
@@ -108,7 +109,7 @@ class ClientAuthentication:
     def authenticate(self):
         data = self.validate_request()
 
-        if not data:
+        if not data or not data.get('client_id'):
             return None
         client = self.get_client(data['client_id'])
         participant = None
@@ -172,6 +173,7 @@ class ClientAuthentication:
     @staticmethod
     def get_client(client_id):
         try:
+            client_id = uuid.UUID(client_id)
             client = Client.objects.get(id=client_id)
             return client
         except Client.DoesNotExist:
@@ -182,5 +184,5 @@ class ClientAuthentication:
         try:
             participant, created = Participant.objects.get_or_create(client=client, user_id=participant_id)
             return participant
-        except Participant.DoesNotExist:
+        except Exception as e:
             return None
