@@ -17,7 +17,7 @@ class Participant(models.Model):
         editable=False
     )  # generate unique participant-id.
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING)  # client-info
-    name = models.CharField(max_length=32)  # will provided from client-app
+    name = models.CharField(max_length=128)  # will provided from client-app
     user_id = models.CharField(max_length=128)  # will provided from client-app
     is_online = models.BooleanField(default=False)
     last_seen = models.DateTimeField(auto_now=True)
@@ -33,8 +33,8 @@ class Participant(models.Model):
 
 class Conversation(BaseModel):
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING)  # client-info
-    friendly_name = models.CharField(max_length=64, blank=True, null=True)
-    identifier_id = models.CharField(max_length=32, blank=True, null=True)
+    friendly_name = models.CharField(max_length=128, blank=True, null=True)
+    identifier_id = models.CharField(max_length=128, blank=True, null=True)
     participants = models.ManyToManyField(Participant)
     is_blocked = models.BooleanField(default=False)
 
@@ -56,6 +56,7 @@ class ChatMessage(models.Model):
     sender = models.ForeignKey(Participant, on_delete=models.DO_NOTHING)  # define sender of the message
     message = models.TextField()  # define message body
     is_read = models.BooleanField(default=False)  # if receiver user read the message or not
+    is_deleted = models.BooleanField(default=False)  # if sender want to remove the message
     file = models.FileField(
         upload_to="conversation/",
         blank=True,
