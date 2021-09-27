@@ -15,7 +15,7 @@ from django.core.asgi import get_asgi_application
 from django.urls import re_path, path
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
-django.setup()
+# django.setup()
 from chat import consumers
 from mysite.middlewares import TokenMiddleware
 
