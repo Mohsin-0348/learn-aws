@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -174,6 +175,12 @@ GRAPHENE = {
         'mysite.middlewares.W3AuthMiddleware'
     ]
 }
+
+# Cores origin
+CORS_ORIGIN_WHITELIST = [
+    "http://localhost:3000",
+]
+CORS_ORIGIN_ALLOW_ALL = True
 
 # mail config
 SENDGRID_API_KEY = config('SENDGRID_API_KEY', None)

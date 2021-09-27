@@ -40,19 +40,31 @@ class UserType(DjangoObjectType):
 
 
 class LogType(DjangoObjectType):
+    object_id = graphene.ID()
+
     class Meta:
         model = UnitOfHistory
         filterset_class = LogsFilters
         interfaces = (graphene.relay.Node,)
         connection_class = CountConnection
 
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
 
 class ClientType(DjangoObjectType):
+    object_id = graphene.ID()
+
     class Meta:
         model = Client
         filterset_class = ClientFilters
         interfaces = (graphene.relay.Node,)
         connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
 
 
 class LoginUser(graphene.Mutation):

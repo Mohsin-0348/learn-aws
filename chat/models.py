@@ -75,3 +75,28 @@ class ChatMessage(models.Model):
         db_table = f"{settings.DB_PREFIX}_chat_messages"  # define table name for database
         ordering = ['-created_on']  # define default order as created in descending
         get_latest_by = "created_on"  # define latest queryset by created
+
+
+# class OffenseWord(models.Model):
+#     word = models.CharField(max_length=16)
+#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="creator")
+#     created_on = models.DateTimeField(auto_now_add=True)
+#     updated_on = models.DateTimeField(auto_now=True)
+#
+#
+# class ClientOffenseWord(models.Model):
+#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING)  # client-info
+#     words = models.ManyToManyField(OffenseWord)
+#
+#
+# class REFormat(models.Model):
+#     expression = models.CharField(max_length=128)
+#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="creator")
+#     created_on = models.DateTimeField(auto_now_add=True)
+#     updated_on = models.DateTimeField(auto_now=True)
+#
+#
+# class ClientREFormats(models.Model):
+#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING)  # client-info
+#     expressions = models.ManyToManyField(REFormat)
+
