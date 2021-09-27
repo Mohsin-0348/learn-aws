@@ -13,14 +13,12 @@ from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 from django.urls import re_path, path
-from django.conf import settings
 
-settings.configure()
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 # django.setup()
 from chat import consumers
 from mysite.middlewares import TokenMiddleware
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 
 
 websocket_urlpatterns = [

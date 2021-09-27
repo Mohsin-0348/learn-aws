@@ -177,6 +177,8 @@ CORS_ORIGIN_WHITELIST = [
 ]
 CORS_ORIGIN_ALLOW_ALL = True
 
+DJANGO_ALLOW_ASYNC_UNSAFE = True
+
 # graphene config
 GRAPHENE = {
     'SCHEMA': 'mysite.schema.schema',
