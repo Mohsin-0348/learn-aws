@@ -4,6 +4,7 @@ import channels_graphql_ws
 import django.contrib.auth
 import graphene
 from django.db.models import Q
+from django.utils import timezone
 from graphene_django.filter.fields import DjangoFilterConnectionField
 from graphene_django.types import DjangoObjectType
 from graphene_file_upload.scalars import Upload
@@ -191,7 +192,7 @@ class MessageQuery(graphene.ObjectType):
         conversation = Conversation.objects.get(id=chat_id, participants=participant)
         unread_messages = conversation.messages.filter(is_read=False).exclude(sender=participant)
         if unread_messages:
-            unread_messages.update(is_read=True)
+            unread_messages.update(is_read=True, updated_on=timezone.now())
         return conversation.messages.all()
 
 
