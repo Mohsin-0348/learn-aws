@@ -1,9 +1,11 @@
 
-import json
 import asyncio
+import json
+
 import channels_graphql_ws
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
+
 from mysite.schema import schema
 
 
@@ -59,7 +61,8 @@ def online_status_update(user, is_online=False):
 class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
 
     async def on_connect(self, payload):
-        if not self.scope["user"]:
+        print(self.scope)
+        if not self.scope["user"] or self.scope['path'] != '/graphql/':
             await self.disconnect(payload)
         else:
             print("[connected]...", f"<{self.scope['user'].id}>")

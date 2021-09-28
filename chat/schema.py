@@ -9,14 +9,15 @@ from graphene_django.types import DjangoObjectType
 from graphene_file_upload.scalars import Upload
 from graphql import GraphQLError
 
+from chat.filters import ConversationFilters, MessageFilters, ParticipantFilters
+from chat.models import ChatMessage, Conversation, Participant
+
 # local imports
 from mysite.count_connection import CountConnection
 from mysite.permissions import is_admin_user, is_authenticated, is_client_request
-from users.models import UnitOfHistory
 from users.choices import IdentifierBaseChoice
 
-from chat.filters import ConversationFilters, MessageFilters, ParticipantFilters
-from chat.models import Conversation, ChatMessage, Participant
+# from users.models import UnitOfHistory
 
 User = django.contrib.auth.get_user_model()
 
@@ -63,7 +64,7 @@ class ConversationQuery(graphene.ObjectType):
     """
     conversation = graphene.Field(ConversationType, id=graphene.ID())
     conversations = DjangoFilterConnectionField(ConversationType)
-    user_conversation = graphene.Field(ConversationType, id=graphene.ID(), loaded_last=graphene.ID(required=False))
+    user_conversation = graphene.Field(ConversationType, id=graphene.ID())
     user_conversations = DjangoFilterConnectionField(ConversationType)
 
     @is_authenticated
@@ -85,31 +86,15 @@ class ConversationQuery(graphene.ObjectType):
         return objects
 
     @is_client_request
-    def resolve_user_conversation(self, info, id, loaded_last=None, **kwargs):
+    def resolve_user_conversation(self, info, id, **kwargs):
         participant = info.context.participant
         conversation = Conversation.objects.get(id=id, participants=participant)
-        messages = conversation.messages.all()
-        if messages.filter(is_read=False) and messages.first().sender != participant:
-            messages.filter(is_read=False).update(is_read=True)
-        if loaded_last:
-            loaded_last = ChatMessage.objects.get(id=loaded_last)
-            messages = conversation.messages.all().filter(created_on__lt=loaded_last.created_on)
-            messages = [obj for obj in messages]
-            if len(messages) > 20:
-                messages = messages[:20]
-        else:
-            messages = [obj for obj in conversation.messages.all()]
-            if len(messages) > 20:
-                messages = messages[:20]
-        MessageSubscription.broadcast(payload=messages, group=str(conversation.id))
         return conversation
 
     @is_client_request
     def resolve_user_conversations(self, info, **kwargs):
         participant = info.context.participant
         objects = Conversation.objects.filter(participants=participant)
-        object_list = [obj for obj in objects]
-        ChatSubscription.broadcast(payload=object_list, group=str(participant.id))
         return objects
 
 
@@ -145,9 +130,9 @@ class StartConversation(graphene.Mutation):
                 identifier_id=identifier_id
             )
             chat.participants.add(participant, opposite_user)
-            objects = [obj for obj in Conversation.objects.filter(id=chat.id)]
-            ChatSubscription.broadcast(payload=objects, group=str(participant.id))
-            ChatSubscription.broadcast(payload=objects, group=str(opposite_user.id))
+
+            ChatSubscription.broadcast(payload=chat, group=str(participant.id))
+            ChatSubscription.broadcast(payload=chat, group=str(opposite_user.id))
         elif Conversation.objects.filter(participants=participant).filter(participants=opposite_user):
             raise GraphQLError(
                 message="Already have conversation.",
@@ -194,10 +179,17 @@ class MessageQuery(graphene.ObjectType):
         query all messages information for admin panel
     """
     all_messages = DjangoFilterConnectionField(MessageType)
+    user_conversation_messages = DjangoFilterConnectionField(MessageType, chat_id=graphene.ID())
 
     @is_admin_user
     def resolve_all_messages(self, info, **kwargs):
         return ChatMessage.objects.all()
+
+    @is_client_request
+    def resolve_user_conversation_messages(self, info, chat_id, **kwargs):
+        participant = info.context.participant
+        conversation = Conversation.objects.get(id=chat_id, participants=participant)
+        return conversation.messages.all()
 
 
 class SendMessage(graphene.Mutation):
@@ -228,8 +220,8 @@ class SendMessage(graphene.Mutation):
         elif file and (not message or not message.strip()):
             message = "Attachment"
         chat_message = ChatMessage.objects.create(conversation=chat, sender=sender, message=message, file=file)
-        objects = [obj for obj in ChatMessage.objects.filter(id=chat_message.id)]
-        MessageSubscription.broadcast(payload=objects, group=str(chat.id))
+
+        MessageSubscription.broadcast(payload=chat_message, group=str(chat.id))
         return SendMessage(success=True, message=chat_message)
 
 
@@ -272,7 +264,7 @@ class ChatSubscription(channels_graphql_ws.Subscription):
     """Simple GraphQL subscription."""
 
     # Subscription payload.
-    conversation = graphene.List(ConversationType)
+    conversation = graphene.Field(ConversationType)
 
     @staticmethod
     def subscribe(root, info):
@@ -299,8 +291,7 @@ class MessageSubscription(channels_graphql_ws.Subscription):
     """Simple GraphQL subscription."""
 
     # Subscription payload.
-    messages = graphene.List(MessageType)
-    conversation = graphene.Field(ConversationType)
+    message = graphene.Field(MessageType)
     receiver = graphene.Field(ParticipantType)
 
     class Arguments:
@@ -338,7 +329,7 @@ class MessageSubscription(channels_graphql_ws.Subscription):
         print('[message published]...', f"<{user}>")
         chat = Conversation.objects.get(id=chat_id, participants=user)
         receiver = chat.participants.all().exclude(id=user.id).first()
-        return MessageSubscription(messages=payload, conversation=chat, receiver=receiver)
+        return MessageSubscription(message=payload, receiver=receiver)
 
 
 class Query(ConversationQuery, MessageQuery, graphene.ObjectType):
