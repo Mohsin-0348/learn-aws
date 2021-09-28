@@ -189,6 +189,9 @@ class MessageQuery(graphene.ObjectType):
     def resolve_user_conversation_messages(self, info, chat_id, **kwargs):
         participant = info.context.participant
         conversation = Conversation.objects.get(id=chat_id, participants=participant)
+        unread_messages = conversation.messages.filter(is_read=False).exclude(sender=participant)
+        if unread_messages:
+            unread_messages.update(is_read=True)
         return conversation.messages.all()
 
 
