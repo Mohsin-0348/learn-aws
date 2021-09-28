@@ -44,11 +44,9 @@ def is_admin_user(func):
 def is_client_request(func):
     def wrapper(cls, info, **kwargs):
         try:
-            client = info.context.client
-            participant = info.context.participant.id
-            print(client, participant)
-        except Exception as e:
-            print(e)
+            if info.context.client and info.context.participant.id:
+                pass
+        except Exception:
             raise GraphQLError(
                 message="Unauthorized client!",
                 extensions={

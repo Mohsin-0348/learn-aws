@@ -108,24 +108,28 @@ class StartConversation(graphene.Mutation):
     conversation = graphene.Field(ConversationType)
 
     class Arguments:
-        opposite_user = graphene.String(required=True)
+        opposite_user_id = graphene.String(required=True)
+        opposite_username = graphene.String(required=True)
         friendly_name = graphene.String(required=False)
         identifier_id = graphene.String(required=False)
 
     @is_client_request
-    def mutate(self, info, opposite_user, friendly_name=None, identifier_id=None):
+    def mutate(self, info, opposite_user_id, opposite_username, friendly_name=None, identifier_id=None):
         participant = info.context.participant
-        opposite_user, created = Participant.objects.get_or_create(client=participant.client, user_id=opposite_user)
-        if not identifier_id and participant.client.identifier_base == IdentifierBaseChoice.IDENTIFIER_BASED:
+        opposite_user, created = Participant.objects.get_or_create(client=participant.client, user_id=opposite_user_id)
+        if not identifier_id and participant.client.identifier_base == IdentifierBaseChoice.IDENTIFIER_BASED \
+                and not friendly_name:
             raise GraphQLError(
-                message="Should include identifier-id",
+                message="Should include identifier-id and friendly name",
                 extensions={
-                    "message": "Should include identifier-id",
+                    "message": "Should include identifier-id and friendly name",
                     "code": "invalid_request"
                 }
             )
-        if opposite_user and not Conversation.objects.filter(
-                participants=participant).filter(participants=opposite_user):
+        if not Conversation.objects.filter(participants=participant).filter(participants=opposite_user):
+            if not created and opposite_username != opposite_user.name:
+                opposite_user.name = opposite_username
+                opposite_user.save()
             chat = Conversation.objects.create(
                 client=participant.client, friendly_name=friendly_name,
                 identifier_id=identifier_id
@@ -162,6 +166,7 @@ class MessageType(DjangoObjectType):
         define django object type for message model
     """
     object_id = graphene.ID()
+    receiver = graphene.Field(ParticipantType)
 
     class Meta:
         model = ChatMessage
@@ -173,6 +178,10 @@ class MessageType(DjangoObjectType):
     @staticmethod
     def resolve_object_id(self, info, **kwargs):
         return self.pk
+
+    @staticmethod
+    def resolve_receiver(self, info, **kwargs):
+        return self.receiver
 
 
 class MessageQuery(graphene.ObjectType):

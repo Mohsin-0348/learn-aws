@@ -1,11 +1,13 @@
+import uuid
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.conf import settings
-import uuid
+
+from bases.models import BaseModel
 
 # define local imports
 from users.models import Client
-from bases.models import BaseModel
 
 User = get_user_model()  # define user model
 
@@ -37,6 +39,8 @@ class Conversation(BaseModel):
     identifier_id = models.CharField(max_length=128, blank=True, null=True)
     participants = models.ManyToManyField(Participant)
     is_blocked = models.BooleanField(default=False)
+    # block_offense_word = models.BooleanField(default=False)
+    # restrict_format = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_on']  # define default order as created in descending
@@ -76,27 +80,30 @@ class ChatMessage(models.Model):
         ordering = ['-created_on']  # define default order as created in descending
         get_latest_by = "created_on"  # define latest queryset by created
 
+    @property
+    def receiver(self):
+        return self.conversation.participants.exclude(id=self.sender.id).last()
 
-# class OffenseWord(models.Model):
+
+# class OffensiveWord(models.Model):
 #     word = models.CharField(max_length=16)
-#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="creator")
+#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_offensive_words")
 #     created_on = models.DateTimeField(auto_now_add=True)
 #     updated_on = models.DateTimeField(auto_now=True)
 #
 #
 # class ClientOffenseWord(models.Model):
-#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING)  # client-info
-#     words = models.ManyToManyField(OffenseWord)
+#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING, related_name="offensive_word")  # client-info
+#     words = models.ManyToManyField(OffensiveWord)
 #
 #
 # class REFormat(models.Model):
 #     expression = models.CharField(max_length=128)
-#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="creator")
+#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_RE_formats")
 #     created_on = models.DateTimeField(auto_now_add=True)
 #     updated_on = models.DateTimeField(auto_now=True)
 #
 #
 # class ClientREFormats(models.Model):
-#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING)  # client-info
+#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING, related_name="RE_format")  # client-info
 #     expressions = models.ManyToManyField(REFormat)
-
