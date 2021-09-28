@@ -1,3 +1,5 @@
+# at w3chat/mysite/authentication.py
+
 from graphql import GraphQLError
 
 
@@ -12,6 +14,7 @@ def is_authenticated(func):
                 }
             )
         return func(cls, info, **kwargs)
+
     return wrapper
 
 
@@ -34,6 +37,7 @@ def is_admin_user(func):
                 }
             )
         return func(cls, info, **kwargs)
+
     return wrapper
 
 
@@ -41,7 +45,10 @@ def is_client_request(func):
     def wrapper(cls, info, **kwargs):
         try:
             client = info.context.client
+            participant = info.context.participant.id
+            print(client, participant)
         except Exception as e:
+            print(e)
             raise GraphQLError(
                 message="Unauthorized client!",
                 extensions={
@@ -50,6 +57,5 @@ def is_client_request(func):
                 }
             )
         return func(cls, info, **kwargs)
+
     return wrapper
-
-

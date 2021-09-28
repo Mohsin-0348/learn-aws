@@ -8,18 +8,18 @@ https://docs.djangoproject.com/en/3.2/howto/deployment/asgi/
 """
 
 import os
-import django
-from channels.auth import AuthMiddlewareStack
+
+# import django
+# from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
-from django.urls import re_path, path
+from django.urls import path, re_path
 
 # django.setup()
 from chat import consumers
 from mysite.middlewares import TokenMiddleware
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
-
 
 websocket_urlpatterns = [
     re_path(r'chat/(?P<room_name>\w+)/$', consumers.ChatConsumer.as_asgi()),
@@ -29,7 +29,7 @@ websocket_urlpatterns = [
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": TokenMiddleware(URLRouter(
-            websocket_urlpatterns
-        )
+        websocket_urlpatterns
+    )
     ),
 })
