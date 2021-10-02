@@ -24,7 +24,7 @@ class ClientForm(forms.ModelForm):
 
     class Meta:
         model = Client
-        exclude = ('auth_key', 'admin', 'employee')
+        exclude = ('auth_key', 'admin', 'employee', 'block_offensive_word', 'restrict_re_format')
 
 
 class ClientEmployeeForm(forms.ModelForm):

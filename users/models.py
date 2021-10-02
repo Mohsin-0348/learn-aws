@@ -1,14 +1,16 @@
-from django.db import models
+import uuid
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, PermissionsMixin
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-import uuid
+from django.db import models
 
-from .choices import RoleChoice, IdentifierBaseChoice
+from bases.models import BaseModel
+
+from .choices import IdentifierBaseChoice, RoleChoice
 from .managers import UserManager, UserPasswordResetManager
 from .tasks import send_email_on_delay
-from bases.models import BaseModel
 
 
 class User(AbstractUser, PermissionsMixin):
@@ -83,6 +85,8 @@ class Client(BaseModel):
         max_length=32, blank=True,
         null=True)  # if any identifier related to chat-module; will be used for redirection
     url = models.URLField(max_length=64)  # client website url
+    block_offensive_word = models.BooleanField(default=False)
+    restrict_re_format = models.BooleanField(default=False)
 
     class Meta:
         db_table = f"{settings.DB_PREFIX}_clients"
@@ -174,4 +178,3 @@ class ResetPassword(models.Model):
     class Meta:
         db_table = f"{settings.DB_PREFIX}_users_password_reset"
         ordering = ['-updated_on']  # define default order as update time in descending
-

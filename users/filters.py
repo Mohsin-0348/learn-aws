@@ -1,8 +1,8 @@
-from django.contrib.auth import get_user_model
 import django_filters as filters
+from django.contrib.auth import get_user_model
 
 from bases.filters import BaseFilters
-from users.models import UnitOfHistory, Client
+from users.models import Client, UnitOfHistory
 
 User = get_user_model()
 
@@ -68,4 +68,6 @@ class ClientFilters(BaseFilters):
             'client_name',
             'created_on',
             'updated_on',
+            'block_offensive_word',
+            'restrict_re_format'
         ]

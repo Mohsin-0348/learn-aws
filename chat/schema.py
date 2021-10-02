@@ -1,4 +1,3 @@
-# third party imports
 
 import channels_graphql_ws
 import django.contrib.auth
@@ -10,17 +9,81 @@ from graphene_django.types import DjangoObjectType
 from graphene_file_upload.scalars import Upload
 from graphql import GraphQLError
 
-from chat.filters import ConversationFilters, MessageFilters, ParticipantFilters
-from chat.models import ChatMessage, Conversation, Participant
+from chat.choices import RegexChoice
 
 # local imports
+from chat.filters import (
+    ClientOffensiveWordFilters,
+    ClientREFormatFilters,
+    ConversationFilters,
+    MessageFilters,
+    OffensiveWordFilters,
+    ParticipantFilters,
+    REFormatFilters,
+)
+from chat.models import (
+    ChatMessage,
+    ClientOffensiveWords,
+    ClientREFormats,
+    Conversation,
+    OffensiveWord,
+    Participant,
+    REFormat,
+)
 from mysite.count_connection import CountConnection
 from mysite.permissions import is_admin_user, is_authenticated, is_client_request
 from users.choices import IdentifierBaseChoice
+from users.models import Client
 
 # from users.models import UnitOfHistory
 
 User = django.contrib.auth.get_user_model()
+
+
+class ParticipantType(DjangoObjectType):
+    """
+        define django object type for chat model
+    """
+    object_id = graphene.ID()
+    unread_count = graphene.Int()
+
+    class Meta:
+        model = Participant
+        filterset_class = ParticipantFilters
+        interfaces = (graphene.relay.Node,)
+        convert_choices_to_enum = False
+        connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
+    @staticmethod
+    def resolve_unread_count(self, info, **kwargs):
+        return self.unread_count
+
+
+class MessageType(DjangoObjectType):
+    """
+        define django object type for message model
+    """
+    object_id = graphene.ID()
+    receiver = graphene.Field(ParticipantType)
+
+    class Meta:
+        model = ChatMessage
+        filterset_class = MessageFilters
+        interfaces = (graphene.relay.Node,)
+        convert_choices_to_enum = False
+        connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
+    @staticmethod
+    def resolve_receiver(self, info, **kwargs):
+        return self.receiver
 
 
 class ConversationType(DjangoObjectType):
@@ -28,6 +91,9 @@ class ConversationType(DjangoObjectType):
         define django object type for chat model
     """
     object_id = graphene.ID()
+    last_message = graphene.Field(MessageType)
+    opposite_user = graphene.Field(ParticipantType)
+    unread_count = graphene.Int()
 
     class Meta:
         model = Conversation
@@ -40,23 +106,18 @@ class ConversationType(DjangoObjectType):
     def resolve_object_id(self, info, **kwargs):
         return self.pk
 
-
-class ParticipantType(DjangoObjectType):
-    """
-        define django object type for chat model
-    """
-    object_id = graphene.ID()
-
-    class Meta:
-        model = Participant
-        filterset_class = ParticipantFilters
-        interfaces = (graphene.relay.Node,)
-        convert_choices_to_enum = False
-        connection_class = CountConnection
+    @staticmethod
+    def resolve_last_message(self, info, **kwargs):
+        return self.last_message
 
     @staticmethod
-    def resolve_object_id(self, info, **kwargs):
-        return self.pk
+    def resolve_opposite_user(self, info, **kwargs):
+        participant = info.context.participant
+        return self.opposite_user(participant)
+
+    @staticmethod
+    def resolve_unread_count(self, info, **kwargs):
+        return self.unread_count(info.context.participant)
 
 
 class ConversationQuery(graphene.ObjectType):
@@ -96,6 +157,10 @@ class ConversationQuery(graphene.ObjectType):
     def resolve_user_conversations(self, info, **kwargs):
         participant = info.context.participant
         objects = Conversation.objects.filter(participants=participant)
+        count_unread_messages = 0
+        for conversation in objects:
+            count_unread_messages = len(conversation.messages.filter(is_read=False).exclude(sender=participant))
+        MessageCountSubscription.broadcast(payload=count_unread_messages, group=str(participant.id))
         return objects
 
 
@@ -112,10 +177,16 @@ class StartConversation(graphene.Mutation):
         opposite_username = graphene.String(required=True)
         friendly_name = graphene.String(required=False)
         identifier_id = graphene.String(required=False)
+        user_photo = Upload()
+        opposite_user_photo = Upload()
 
     @is_client_request
-    def mutate(self, info, opposite_user_id, opposite_username, friendly_name=None, identifier_id=None):
+    def mutate(self, info, opposite_user_id, opposite_username, friendly_name=None, identifier_id=None,
+               user_photo=None, opposite_user_photo=None):
         participant = info.context.participant
+        if participant and user_photo and participant.photo != user_photo:
+            participant.photo = user_photo
+            participant.save()
         opposite_user, created = Participant.objects.get_or_create(client=participant.client, user_id=opposite_user_id)
         if not identifier_id and participant.client.identifier_base == IdentifierBaseChoice.IDENTIFIER_BASED \
                 and not friendly_name:
@@ -126,9 +197,13 @@ class StartConversation(graphene.Mutation):
                     "code": "invalid_request"
                 }
             )
-        if not Conversation.objects.filter(participants=participant).filter(participants=opposite_user):
-            if not created and opposite_username != opposite_user.name:
+        if not Conversation.objects.filter(
+                participants=participant).filter(participants=opposite_user, identifier_id=identifier_id):
+            if opposite_username != opposite_user.name:
                 opposite_user.name = opposite_username
+                opposite_user.save()
+            if opposite_user_photo and opposite_user.photo != opposite_user_photo:
+                opposite_user.photo = opposite_user_photo
                 opposite_user.save()
             chat = Conversation.objects.create(
                 client=participant.client, friendly_name=friendly_name,
@@ -161,27 +236,23 @@ class StartConversation(graphene.Mutation):
         )
 
 
-class MessageType(DjangoObjectType):
+class UpdatePhoto(graphene.Mutation):
     """
-        define django object type for message model
+        add new message by chat id, message and file
     """
-    object_id = graphene.ID()
-    receiver = graphene.Field(ParticipantType)
+    success = graphene.Boolean()
+    participant = graphene.Field(ParticipantType)
 
-    class Meta:
-        model = ChatMessage
-        filterset_class = MessageFilters
-        interfaces = (graphene.relay.Node,)
-        convert_choices_to_enum = False
-        connection_class = CountConnection
+    class Arguments:
+        photo = Upload()
 
-    @staticmethod
-    def resolve_object_id(self, info, **kwargs):
-        return self.pk
-
-    @staticmethod
-    def resolve_receiver(self, info, **kwargs):
-        return self.receiver
+    @is_client_request
+    def mutate(self, info, photo, **kwargs):
+        participant = info.context.participant
+        if participant:
+            participant.photo = photo
+            participant.save()
+        return UpdatePhoto(success=True, participant=participant)
 
 
 class MessageQuery(graphene.ObjectType):
@@ -202,7 +273,7 @@ class MessageQuery(graphene.ObjectType):
         unread_messages = conversation.messages.filter(is_read=False).exclude(sender=participant)
         if unread_messages:
             unread_messages.update(is_read=True, updated_on=timezone.now())
-        return conversation.messages.all()
+        return ChatMessage.objects.filter(conversation=conversation)
 
 
 class SendMessage(graphene.Mutation):
@@ -273,6 +344,158 @@ class BlockUserConversation(graphene.Mutation):
         )
 
 
+class OffensiveWordType(DjangoObjectType):
+    """
+        define django object type for message model
+    """
+    object_id = graphene.ID()
+
+    class Meta:
+        model = OffensiveWord
+        filterset_class = OffensiveWordFilters
+        interfaces = (graphene.relay.Node,)
+        convert_choices_to_enum = False
+        connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
+
+class ClientOffensiveWordsType(DjangoObjectType):
+    """
+        define django object type for message model
+    """
+    object_id = graphene.ID()
+
+    class Meta:
+        model = ClientOffensiveWords
+        filterset_class = ClientOffensiveWordFilters
+        interfaces = (graphene.relay.Node,)
+        convert_choices_to_enum = False
+        connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
+
+class REFormatType(DjangoObjectType):
+    """
+        define django object type for message model
+    """
+    object_id = graphene.ID()
+
+    class Meta:
+        model = REFormat
+        filterset_class = REFormatFilters
+        interfaces = (graphene.relay.Node,)
+        convert_choices_to_enum = False
+        connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
+
+class ClientREFormatsType(DjangoObjectType):
+    """
+        define django object type for message model
+    """
+    object_id = graphene.ID()
+
+    class Meta:
+        model = ClientREFormats
+        filterset_class = ClientREFormatFilters
+        interfaces = (graphene.relay.Node,)
+        convert_choices_to_enum = False
+        connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
+
+class OffensiveWordMutation(graphene.Mutation):
+    success = graphene.String()
+    message = graphene.String()
+    object = graphene.Field(OffensiveWordType)
+
+    class Arguments:
+        word = graphene.String()
+        remove = graphene.Boolean()
+
+    @is_authenticated
+    def mutate(self, info, word, remove=False, **kwargs):
+        user = info.context.user
+        if not word.strip():
+            raise GraphQLError(
+                message="Invalid input.",
+                extensions={
+                    "errors": {"word": "This field is required."},
+                    "code": "invalid_input"
+                }
+            )
+        message = "Successfully added"
+        if not user.is_admin:
+            client = Client.objects.get(admin=user)
+            if remove:
+                word_client, added = ClientOffensiveWords.objects.get_or_create(client=client)
+                object = OffensiveWord.objects.get(word=word)
+                word_client.words.get(word=object.word)
+                word_client.words.remove(object)
+                message = "Successfully removed"
+            else:
+                object, created = OffensiveWord.objects.get_or_create(word=word)
+                word_client, added = ClientOffensiveWords.objects.get_or_create(client=client)
+                word_client.words.add(object)
+        else:
+            object = OffensiveWord.objects.create(word=word)
+        return OffensiveWordMutation(
+            success=True,
+            message=message,
+            object=object
+        )
+
+
+class REFormatMutation(graphene.Mutation):
+    success = graphene.String()
+    message = graphene.String()
+    object = graphene.Field(REFormatType)
+
+    class Arguments:
+        expression = graphene.String()
+        remove = graphene.Boolean()
+
+    @is_authenticated
+    def mutate(self, info, expression, remove=False, **kwargs):
+        user = info.context.user
+        if not expression.strip() or expression not in RegexChoice.choices:
+            raise GraphQLError(
+                message="Invalid input.",
+                extensions={
+                    "errors": {"expression": "This field is required."},
+                    "code": "invalid_input"
+                }
+            )
+        message = "Successfully added"
+        if not user.is_admin:
+            client = Client.objects.get(admin=user)
+            if remove:
+                expression_client, added = ClientREFormats.objects.get_or_create(client=client)
+                object = REFormat.objects.get(expression=expression)
+                expression_client.words.get(expression=object.expression)
+                expression_client.expressions.remove(object)
+                message = "Successfully removed"
+            else:
+                object, created = REFormat.objects.get_or_create(expression=expression)
+                expression_client, added = ClientREFormats.objects.get_or_create(client=client)
+                expression_client.expressions.add(object)
+        else:
+            object = REFormat.objects.create(expression=expression)
+        return REFormatMutation(success=True, object=object, message=message)
+
+
 class ChatSubscription(channels_graphql_ws.Subscription):
     """Simple GraphQL subscription."""
 
@@ -322,7 +545,7 @@ class MessageSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print('[subscribed to messaging]...', f"<{user}>")
+        print(f"[subscribed to messaging]... <{user}>")
         chat = Conversation.objects.filter(id=chat_id, participants=user)
         if not chat:
             raise GraphQLError(
@@ -339,17 +562,84 @@ class MessageSubscription(channels_graphql_ws.Subscription):
     def publish(payload, info, chat_id):
         """Called to notify the client."""
         user = info.context.user
-        print('[message published]...', f"<{user}>")
+        print(f"[message published]... <{user}>")
         chat = Conversation.objects.get(id=chat_id, participants=user)
         receiver = chat.participants.all().exclude(id=user.id).first()
         return MessageSubscription(message=payload, receiver=receiver)
+
+
+class MessageCountSubscription(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Subscription payload.
+    count = graphene.Int()
+
+    @staticmethod
+    def subscribe(root, info):
+        """Called when user subscribes."""
+        user = info.context.user
+        if not user:
+            raise GraphQLError(
+                message="Invalid user!",
+                extensions={
+                    "message": "Invalid user!",
+                    "code": "invalid_user"
+                }
+            )
+        print("[subscribed to count]...", user)
+        return [str(info.context.user.id)]
+
+    @staticmethod
+    def publish(payload, info, chat_id=None):
+        """Called to notify the client."""
+        print('[count published]...', info.context.user)
+        return MessageCountSubscription(count=payload)
 
 
 class Query(ConversationQuery, MessageQuery, graphene.ObjectType):
     """
         define all the queries together
     """
-    pass
+    participant_user = graphene.Field(ParticipantType)
+    offensive_words = DjangoFilterConnectionField(OffensiveWordType)
+    re_formats = DjangoFilterConnectionField(REFormatType)
+
+    @is_client_request
+    def resolve_participant_user(self, info, **kwargs):
+        return info.context.participant
+
+    @is_authenticated
+    def resolve_offensive_words(self, info, **kwargs):
+        user = info.context.user
+        words = OffensiveWord.objects.filter(id=0)
+        if user.is_admin:
+            words = OffensiveWord.objects.all()
+        elif Client.objects.filter(admin=user):
+            client = Client.objects.filter(admin=user).last()
+            if ClientOffensiveWords.objects.filter(client=client):
+                words = ClientOffensiveWords.objects.filter(client=client).last().words.all()
+        elif Client.objects.filter(employee=user):
+            client = Client.objects.filter(employee=user).last()
+            if ClientOffensiveWords.objects.filter(client=client):
+                words = ClientOffensiveWords.objects.filter(client=client).last().words.all()
+
+        return words
+
+    @is_authenticated
+    def resolve_re_formats(self, info, **kwargs):
+        user = info.context.user
+        expressions = REFormat.objects.filter(id=0)
+        if user.is_admin:
+            expressions = REFormat.objects.all()
+        elif Client.objects.filter(admin=user):
+            client = Client.objects.filter(admin=user).last()
+            if ClientREFormats.objects.filter(client=client):
+                expressions = ClientREFormats.objects.filter(client=client).last().expressions.all()
+        elif Client.objects.filter(employee=user):
+            client = Client.objects.filter(employee=user).last()
+            if ClientREFormats.objects.filter(client=client):
+                expressions = ClientREFormats.objects.filter(client=client).last().expressions.all()
+        return expressions
 
 
 class Mutation(graphene.ObjectType):
@@ -357,11 +647,15 @@ class Mutation(graphene.ObjectType):
         define all the mutations by identifier name for query
     """
     start_conversation = StartConversation.Field()
+    update_photo = UpdatePhoto.Field()
     send_message = SendMessage.Field()
     block_user_conversation = BlockUserConversation.Field()
+    add_or_remove_offensive_word = OffensiveWordMutation.Field()
+    add_or_remove_expression = REFormatMutation.Field()
 
 
 class Subscription(graphene.ObjectType):
     """Root GraphQL subscription."""
     chat_subscription = ChatSubscription.Field()
     message_subscription = MessageSubscription.Field()
+    message_count_subscription = MessageCountSubscription.Field()

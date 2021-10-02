@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 
 from bases.models import BaseModel
+from chat.choices import RegexChoice
 
 # define local imports
 from users.models import Client
@@ -21,6 +22,7 @@ class Participant(models.Model):
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING)  # client-info
     name = models.CharField(max_length=128)  # will provided from client-app
     user_id = models.CharField(max_length=128)  # will provided from client-app
+    photo = models.ImageField(upload_to='participant_photo', blank=True, null=True)
     is_online = models.BooleanField(default=False)
     last_seen = models.DateTimeField(auto_now=True)
 
@@ -32,6 +34,10 @@ class Participant(models.Model):
     def __str__(self):
         return f"{self.id}"
 
+    @property
+    def unread_count(self):
+        return len(ChatMessage.objects.filter(is_read=False, conversation__participants=self).exclude(sender=self))
+
 
 class Conversation(BaseModel):
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING)  # client-info
@@ -39,8 +45,6 @@ class Conversation(BaseModel):
     identifier_id = models.CharField(max_length=128, blank=True, null=True)
     participants = models.ManyToManyField(Participant)
     is_blocked = models.BooleanField(default=False)
-    # block_offense_word = models.BooleanField(default=False)
-    # restrict_format = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_on']  # define default order as created in descending
@@ -49,11 +53,20 @@ class Conversation(BaseModel):
     def __str__(self):
         return str(self.id)
 
+    @property
+    def last_message(self):
+        return self.messages.first()
+
+    def opposite_user(self, participant):
+        return self.participants.exclude(id=participant.id).last()
+
+    def unread_count(self, participant):
+        return len(self.messages.filter(is_read=False).exclude(sender=participant))
+
 
 class ChatMessage(models.Model):
     """
-        Store message of seller or buyer for a conversation.
-        And help-query-user or admin user conversation message.
+        Store message of users for a conversation.
     """
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE,
                                      related_name='messages')  # define reference conversation for a message
@@ -85,25 +98,31 @@ class ChatMessage(models.Model):
         return self.conversation.participants.exclude(id=self.sender.id).last()
 
 
-# class OffensiveWord(models.Model):
-#     word = models.CharField(max_length=16)
-#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_offensive_words")
-#     created_on = models.DateTimeField(auto_now_add=True)
-#     updated_on = models.DateTimeField(auto_now=True)
-#
-#
-# class ClientOffenseWord(models.Model):
-#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING, related_name="offensive_word")  # client-info
-#     words = models.ManyToManyField(OffensiveWord)
-#
-#
-# class REFormat(models.Model):
-#     expression = models.CharField(max_length=128)
-#     user = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_RE_formats")
-#     created_on = models.DateTimeField(auto_now_add=True)
-#     updated_on = models.DateTimeField(auto_now=True)
-#
-#
-# class ClientREFormats(models.Model):
-#     client = models.OneToOneField(Client, on_delete=models.DO_NOTHING, related_name="RE_format")  # client-info
-#     expressions = models.ManyToManyField(REFormat)
+class OffensiveWord(models.Model):
+    word = models.CharField(max_length=16, unique=True)
+
+    def __str__(self):
+        return self.word
+
+
+class ClientOffensiveWords(models.Model):
+    client = models.OneToOneField(Client, on_delete=models.DO_NOTHING, related_name="offensive_word")  # client-info
+    words = models.ManyToManyField(OffensiveWord)
+
+    class Meta:
+        verbose_name_plural = "ClientOffensiveWords"
+
+
+class REFormat(models.Model):
+    expression = models.CharField(max_length=128, unique=True, choices=RegexChoice.choices)
+
+    def __str__(self):
+        return self.expression
+
+
+class ClientREFormats(models.Model):
+    client = models.OneToOneField(Client, on_delete=models.DO_NOTHING, related_name="RE_format")  # client-info
+    expressions = models.ManyToManyField(REFormat)
+
+    class Meta:
+        verbose_name_plural = "ClientREFormats"
