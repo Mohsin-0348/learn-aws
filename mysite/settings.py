@@ -27,7 +27,7 @@ SECRET_KEY = config('SECRET_KEY', None)
 CLIENT_KEY = config('CLIENT_KEY', None)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = config('DEBUG', False)
 
 ALLOWED_HOSTS = [config("ALLOWED_HOSTS", None)]
 

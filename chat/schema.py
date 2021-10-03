@@ -1,4 +1,6 @@
 
+import re
+
 import channels_graphql_ws
 import django.contrib.auth
 import graphene
@@ -303,8 +305,37 @@ class SendMessage(graphene.Mutation):
             )
         elif file and (not message or not message.strip()):
             message = "Attachment"
-        chat_message = ChatMessage.objects.create(conversation=chat, sender=sender, message=message, file=file)
+        if client.block_offensive_word and ClientOffensiveWords.objects.filter(client=client):
+            for word in ClientOffensiveWords.objects.get(client=client).words.all():
+                if re.findall(str(word), message):
+                    raise GraphQLError(
+                        message="Invalid input request.",
+                        extensions={
+                            "errors": {"message": f"Using '{word}' is prohibited."},
+                            "code": "invalid_input"
+                        }
+                    )
+        # if client.restrict_re_format and ClientREFormats.objects.filter(client=client):
+        #     words = list(map(str, message.split()))
+        #     for word in words:
+        #         for expression in ClientREFormats.objects.get(client=client).expressions.all():
+        #             print(re.compile(str(expression)), re.compile(str(expression)).pattern)
+        #             if (re.search(re.compile(expression).pattern, word)):
+        #                 raise GraphQLError(
+        #                     message="Invalid input request.",
+        #                     extensions={
+        #                         "errors": {"message": f"'{word}' sharing is prohibited."},
+        #                         "code": "invalid_input"
+        #                     }
+        #                 )
 
+        chat_message = ChatMessage.objects.create(conversation=chat, sender=sender, message=message, file=file)
+        if chat.connected.filter(id=chat_message.receiver.id):
+            chat_message.is_read = True
+            chat_message.save()
+        else:
+            MessageCountSubscription.broadcast(payload=chat_message.receiver.unread_count,
+                                               group=str(chat_message.receiver.id))
         MessageSubscription.broadcast(payload=chat_message, group=str(chat.id))
         return SendMessage(success=True, message=chat_message)
 
@@ -555,7 +586,7 @@ class MessageSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_chat"
                 }
             )
-
+        chat.last().connected.add(user)
         return [chat_id]
 
     @staticmethod
@@ -590,7 +621,7 @@ class MessageCountSubscription(channels_graphql_ws.Subscription):
         return [str(info.context.user.id)]
 
     @staticmethod
-    def publish(payload, info, chat_id=None):
+    def publish(payload, info):
         """Called to notify the client."""
         print('[count published]...', info.context.user)
         return MessageCountSubscription(count=payload)

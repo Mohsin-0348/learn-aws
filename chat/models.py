@@ -44,6 +44,7 @@ class Conversation(BaseModel):
     friendly_name = models.CharField(max_length=128, blank=True, null=True)
     identifier_id = models.CharField(max_length=128, blank=True, null=True)
     participants = models.ManyToManyField(Participant)
+    connected = models.ManyToManyField(Participant, related_name="connected_users")
     is_blocked = models.BooleanField(default=False)
 
     class Meta:

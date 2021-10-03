@@ -6,6 +6,7 @@ import channels_graphql_ws
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
 
+from chat.models import Conversation
 from mysite.schema import schema
 
 
@@ -56,6 +57,9 @@ class ChatConsumer(WebsocketConsumer):
 def online_status_update(user, is_online=False):
     user.is_online = is_online
     user.save()
+    if not is_online:
+        for conversation in Conversation.objects.filter(participants=user):
+            conversation.connected.remove(user)
 
 
 class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
