@@ -114,12 +114,13 @@ class ConversationType(DjangoObjectType):
 
     @staticmethod
     def resolve_opposite_user(self, info, **kwargs):
-        participant = info.context.participant
+        participant = info.context.user
         return self.opposite_user(participant)
 
     @staticmethod
     def resolve_unread_count(self, info, **kwargs):
-        return self.unread_count(info.context.participant)
+        participant = info.context.user
+        return self.unread_count(participant)
 
 
 class ConversationQuery(graphene.ObjectType):
@@ -151,13 +152,13 @@ class ConversationQuery(graphene.ObjectType):
 
     @is_client_request
     def resolve_user_conversation(self, info, id, **kwargs):
-        participant = info.context.participant
+        participant = info.context.user
         conversation = Conversation.objects.get(id=id, participants=participant)
         return conversation
 
     @is_client_request
     def resolve_user_conversations(self, info, **kwargs):
-        participant = info.context.participant
+        participant = info.context.user
         objects = Conversation.objects.filter(participants=participant)
         count_unread_messages = 0
         for conversation in objects:
@@ -185,7 +186,7 @@ class StartConversation(graphene.Mutation):
     @is_client_request
     def mutate(self, info, opposite_user_id, opposite_username, friendly_name=None, identifier_id=None,
                user_photo=None, opposite_user_photo=None):
-        participant = info.context.participant
+        participant = info.context.user
         if participant and user_photo and participant.photo != user_photo:
             participant.photo = user_photo
             participant.save()
@@ -250,7 +251,7 @@ class UpdatePhoto(graphene.Mutation):
 
     @is_client_request
     def mutate(self, info, photo, **kwargs):
-        participant = info.context.participant
+        participant = info.context.user
         if participant:
             participant.photo = photo
             participant.save()
@@ -271,18 +272,19 @@ class MessageQuery(graphene.ObjectType):
 
     @is_client_request
     def resolve_user_conversation_messages(self, info, chat_id, **kwargs):
-        participant = info.context.participant
+        participant = info.context.user
         conversation = Conversation.objects.get(id=chat_id, participants=participant)
         unread_messages = conversation.messages.filter(is_read=False).exclude(sender=participant)
+        message_data = [obj.id for obj in unread_messages]
         if unread_messages:
             unread_messages.update(is_read=True, updated_on=timezone.now())
-            # for msg in unread_messages:
-            #     MessageSubscription.broadcast(payload=msg, group=str(conversation.id))
-        return ChatMessage.objects.filter(conversation=conversation)
+            for msg in ChatMessage.objects.filter(id__in=message_data):
+                MessageSubscription.broadcast(payload=msg, group=str(conversation.id))
+        return ChatMessage.objects.filter(conversation=conversation, is_deleted=False).exclude(deleted_from=participant)
 
     @is_client_request
     def resolve_message_count(self, info, **kwargs):
-        return info.context.participant.unread_count
+        return info.context.user.unread_count
 
 
 class SendMessage(graphene.Mutation):
@@ -300,7 +302,7 @@ class SendMessage(graphene.Mutation):
     @is_client_request
     def mutate(self, info, chat_id, message=None, file=None):
         client = info.context.client
-        sender = info.context.participant
+        sender = info.context.user
         chat = Conversation.objects.get(client=client, participants=sender, id=chat_id, is_blocked=False)
         if (not message or not message.strip()) and not file:
             raise GraphQLError(
@@ -322,19 +324,18 @@ class SendMessage(graphene.Mutation):
                             "code": "invalid_input"
                         }
                     )
-        # if client.restrict_re_format and ClientREFormats.objects.filter(client=client):
-        #     words = list(map(str, message.split()))
-        #     for word in words:
-        #         for expression in ClientREFormats.objects.get(client=client).expressions.all():
-        #             print(re.compile(str(expression)), re.compile(str(expression)).pattern)
-        #             if (re.search(re.compile(expression).pattern, word)):
-        #                 raise GraphQLError(
-        #                     message="Invalid input request.",
-        #                     extensions={
-        #                         "errors": {"message": f"'{word}' sharing is prohibited."},
-        #                         "code": "invalid_input"
-        #                     }
-        #                 )
+        if client.restrict_re_format and ClientREFormats.objects.filter(client=client):
+            words = list(map(str, message.split()))
+            for word in words:
+                for expression in ClientREFormats.objects.get(client=client).expressions.all():
+                    if (re.search(re.compile(expression.expression).pattern, word)):
+                        raise GraphQLError(
+                            message="Invalid input request.",
+                            extensions={
+                                "errors": {"message": f"'{word}' sharing is prohibited."},
+                                "code": "invalid_input"
+                            }
+                        )
 
         chat_message = ChatMessage.objects.create(conversation=chat, sender=sender, message=message, file=file)
         if chat.connected.filter(id=chat_message.receiver.id):
@@ -344,9 +345,62 @@ class SendMessage(graphene.Mutation):
             MessageCountSubscription.broadcast(payload=chat_message.receiver.unread_count,
                                                group=str(chat_message.receiver.id))
         MessageSubscription.broadcast(payload=chat_message, group=str(chat.id))
-        # ChatSubscription.broadcast(payload=chat, group=str(sender.id))
-        # ChatSubscription.broadcast(payload=chat, group=str(chat_message.receiver.id))
+        ChatSubscription.broadcast(payload=chat, group=str(sender.id))
+        ChatSubscription.broadcast(payload=chat, group=str(chat_message.receiver.id))
         return SendMessage(success=True, message=chat_message)
+
+
+class DeleteId(graphene.InputObjectType):
+    id = graphene.ID()
+
+
+class DeleteMessages(graphene.Mutation):
+    success = graphene.Boolean()
+
+    class Arguments:
+        message_ids = graphene.List(DeleteId)
+        for_all = graphene.Boolean()
+
+    @is_client_request
+    def mutate(self, info, message_ids, for_all=False, **kwargs):
+        participant = info.context.user
+        message_ids = [id.id for id in message_ids]
+        if message_ids and ChatMessage.objects.filter(id__in=message_ids, conversation__participants=participant,
+                                                      is_deleted=False).exclude(deleted_from=participant):
+            messages = ChatMessage.objects.filter(id__in=message_ids, conversation__participants=participant,
+                                                  is_deleted=False).exclude(deleted_from=participant)
+            if for_all:
+                all_messages = messages.filter(is_read=False)
+                if len(messages) != len(all_messages):
+                    raise GraphQLError(
+                        message="Invalid request.",
+                        extensions={
+                            "errors": {"messageIds": "User can't delete read messages."},
+                            "code": "invalid_request"
+                        }
+                    )
+                all_messages = all_messages.filter(sender=participant)
+                if len(messages) != len(all_messages):
+                    raise GraphQLError(
+                        message="Invalid request.",
+                        extensions={
+                            "errors": {"messageIds": "User can't delete other sender's messages."},
+                            "code": "invalid_request"
+                        }
+                    )
+                all_messages.update(is_deleted=True)
+            else:
+                for msg in messages:
+                    msg.deleted_from.add(participant)
+        else:
+            raise GraphQLError(
+                message="Invalid input request.",
+                extensions={
+                    "errors": {"messageIds": "No message found for deleting."},
+                    "code": "invalid_input"
+                }
+            )
+        return DeleteMessages(success=True)
 
 
 class BlockUserConversation(graphene.Mutation):
@@ -646,7 +700,7 @@ class Query(ConversationQuery, MessageQuery, graphene.ObjectType):
 
     @is_client_request
     def resolve_participant_user(self, info, **kwargs):
-        return info.context.participant
+        return info.context.user
 
     @is_authenticated
     def resolve_offensive_words(self, info, **kwargs):
@@ -692,6 +746,7 @@ class Mutation(graphene.ObjectType):
     block_user_conversation = BlockUserConversation.Field()
     add_or_remove_offensive_word = OffensiveWordMutation.Field()
     add_or_remove_expression = REFormatMutation.Field()
+    delete_messages = DeleteMessages.Field()
 
 
 class Subscription(graphene.ObjectType):

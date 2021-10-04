@@ -44,7 +44,7 @@ def is_admin_user(func):
 def is_client_request(func):
     def wrapper(cls, info, **kwargs):
         try:
-            if info.context.client or info.context.participant.id:
+            if info.context.client and info.context.user.id:
                 pass
         except Exception:
             raise GraphQLError(

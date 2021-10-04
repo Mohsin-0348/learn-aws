@@ -36,7 +36,9 @@ class Participant(models.Model):
 
     @property
     def unread_count(self):
-        return len(ChatMessage.objects.filter(is_read=False, conversation__participants=self).exclude(sender=self))
+        return len(ChatMessage.objects.filter(
+            is_read=False, conversation__participants=self, is_deleted=False
+        ).exclude(sender=self))
 
 
 class Conversation(BaseModel):
@@ -56,13 +58,13 @@ class Conversation(BaseModel):
 
     @property
     def last_message(self):
-        return self.messages.first()
+        return self.messages.filter(is_deleted=False).first()
 
     def opposite_user(self, participant):
         return self.participants.exclude(id=participant.id).last()
 
     def unread_count(self, participant):
-        return len(self.messages.filter(is_read=False).exclude(sender=participant))
+        return len(self.messages.filter(is_read=False, is_deleted=False).exclude(sender=participant))
 
 
 class ChatMessage(models.Model):
@@ -71,10 +73,12 @@ class ChatMessage(models.Model):
     """
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE,
                                      related_name='messages')  # define reference conversation for a message
-    sender = models.ForeignKey(Participant, on_delete=models.DO_NOTHING)  # define sender of the message
+    sender = models.ForeignKey(Participant, on_delete=models.DO_NOTHING,
+                               related_name='sent_messages')  # define sender of the message
     message = models.TextField()  # define message body
     is_read = models.BooleanField(default=False)  # if receiver user read the message or not
     is_deleted = models.BooleanField(default=False)  # if sender want to remove the message
+    deleted_from = models.ManyToManyField(Participant)
     file = models.FileField(
         upload_to="conversation/",
         blank=True,

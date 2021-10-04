@@ -1,7 +1,6 @@
 
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
-from django.contrib.auth.models import AnonymousUser
 
 from .authentication import Authentication, ClientAuthentication
 
@@ -20,7 +19,7 @@ class W3AuthMiddleware(object):
     def resolve(self, next, root, info, **kwargs):
         info.context.user = self.authorize_user(info)
         if self.authorize_client(info):
-            info.context.client, info.context.participant = self.authorize_client(info)
+            info.context.client, info.context.user = self.authorize_client(info)
         return next(root, info, **kwargs)
 
     @staticmethod
