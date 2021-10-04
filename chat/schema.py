@@ -160,10 +160,6 @@ class ConversationQuery(graphene.ObjectType):
     def resolve_user_conversations(self, info, **kwargs):
         participant = info.context.user
         objects = Conversation.objects.filter(participants=participant)
-        count_unread_messages = 0
-        for conversation in objects:
-            count_unread_messages = len(conversation.messages.filter(is_read=False).exclude(sender=participant))
-        MessageCountSubscription.broadcast(payload=count_unread_messages, group=str(participant.id))
         return objects
 
 
@@ -274,7 +270,7 @@ class MessageQuery(graphene.ObjectType):
     def resolve_user_conversation_messages(self, info, chat_id, **kwargs):
         participant = info.context.user
         conversation = Conversation.objects.get(id=chat_id, participants=participant)
-        unread_messages = conversation.messages.filter(is_read=False).exclude(sender=participant)
+        unread_messages = conversation.messages.filter(is_read=False, is_deleted=False).exclude(sender=participant)
         message_data = [obj.id for obj in unread_messages]
         if unread_messages:
             unread_messages.update(is_read=True, updated_on=timezone.now())
