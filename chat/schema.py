@@ -263,6 +263,7 @@ class MessageQuery(graphene.ObjectType):
     """
     all_messages = DjangoFilterConnectionField(MessageType)
     user_conversation_messages = DjangoFilterConnectionField(MessageType, chat_id=graphene.ID())
+    message_count = graphene.Int()
 
     @is_admin_user
     def resolve_all_messages(self, info, **kwargs):
@@ -275,7 +276,13 @@ class MessageQuery(graphene.ObjectType):
         unread_messages = conversation.messages.filter(is_read=False).exclude(sender=participant)
         if unread_messages:
             unread_messages.update(is_read=True, updated_on=timezone.now())
+            # for msg in unread_messages:
+            #     MessageSubscription.broadcast(payload=msg, group=str(conversation.id))
         return ChatMessage.objects.filter(conversation=conversation)
+
+    @is_client_request
+    def resolve_message_count(self, info, **kwargs):
+        return info.context.participant.unread_count
 
 
 class SendMessage(graphene.Mutation):
@@ -337,6 +344,8 @@ class SendMessage(graphene.Mutation):
             MessageCountSubscription.broadcast(payload=chat_message.receiver.unread_count,
                                                group=str(chat_message.receiver.id))
         MessageSubscription.broadcast(payload=chat_message, group=str(chat.id))
+        # ChatSubscription.broadcast(payload=chat, group=str(sender.id))
+        # ChatSubscription.broadcast(payload=chat, group=str(chat_message.receiver.id))
         return SendMessage(success=True, message=chat_message)
 
 
