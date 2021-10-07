@@ -1,4 +1,3 @@
-
 import asyncio
 import json
 
@@ -54,31 +53,45 @@ class ChatConsumer(WebsocketConsumer):
         }))
 
 
-def online_status_update(user, is_online=False):
-    user.is_online = is_online
-    user.save()
-    if not is_online:
-        for conversation in Conversation.objects.filter(participants=user):
-            conversation.connected.remove(user)
+def online_status_update(user, connected=False, chat_id=None):
+    # if connected:
+    #     if user.count_connection > 0:
+    #         user.count_connection -= 1
+    #         if user.count_connection == 0:
+    #             user.is_online = False
+    #         user.save()
+    if chat_id:
+        Conversation.objects.get(id=chat_id, participants=user).connected.remove(user)
 
 
 class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
 
     async def on_connect(self, payload):
         # print(self.scope)
-        print(self.channel_receive.__sizeof__())
-        print(self.channel_receive)
         if not self.scope["user"] or self.scope['path'] != '/graphql/':
             await self.disconnect(payload)
         else:
-            # self.scope["chats"] = []
+            self.scope["chats"] = ""
+            self.scope["chat_connection"] = None
             print("[connected]...", f"<{self.scope['user'].id}>")
-            await asyncio.get_event_loop().run_in_executor(None, online_status_update, self.scope["user"], True)
 
     async def disconnect(self, payload):
-        print(self.scope)
         if self.scope["user"]:
-            await asyncio.get_event_loop().run_in_executor(None, online_status_update, self.scope["user"])
+            chat_connection = False
+            if self.scope["chat_connection"]:
+                chat_connection = True
+            if self.scope['chats']:
+                await asyncio.get_event_loop().run_in_executor(
+                    None, online_status_update, self.scope["user"], chat_connection, self.scope['chats']
+                )
+            await asyncio.get_event_loop().run_in_executor(
+                None, online_status_update, self.scope["user"], chat_connection
+            )
             print("[Disconnected]...", f"<{self.scope['user'].id}>")
+
+    async def unsubscribe(self, message):
+        print(True)
+        print(message)
+        print(self.scope)
 
     schema = schema

@@ -298,7 +298,7 @@ class SendMessage(graphene.Mutation):
         file = Upload(required=False)
 
     @is_client_request
-    def mutate(self, info, chat_id, message=None, file=None):
+    def mutate(self, info, chat_id, message=None, file=None, **kwargs):
         client = info.context.client
         sender = info.context.user
         chat = Conversation.objects.get(client=client, participants=sender, id=chat_id, is_blocked=False)
@@ -346,6 +346,22 @@ class SendMessage(graphene.Mutation):
         ChatSubscription.broadcast(payload=chat, group=str(sender.id))
         ChatSubscription.broadcast(payload=chat, group=str(chat_message.receiver.id))
         return SendMessage(success=True, message=chat_message)
+
+
+class TypingMutation(graphene.Mutation):
+    success = graphene.Boolean()
+
+    class Arguments:
+        chat_id = graphene.ID()
+
+    @is_client_request
+    def mutate(self, info, chat_id, **kwargs):
+        user = info.context.user
+        chat = Conversation.objects.get(participants=user, id=chat_id, is_blocked=False)
+        TypingSubscription.broadcast(
+            payload=str(chat.id), group=str(chat.opposite_user(user).id)
+        )
+        return TypingMutation(success=True)
 
 
 class DeleteId(graphene.InputObjectType):
@@ -597,7 +613,8 @@ class ChatSubscription(channels_graphql_ws.Subscription):
     @staticmethod
     def subscribe(root, info):
         """Called when user subscribes."""
-        if not info.context.user:
+        user = info.context.user
+        if not user:
             raise GraphQLError(
                 message="Invalid user!",
                 extensions={
@@ -605,8 +622,12 @@ class ChatSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print("[subscribed to conversation]...", info.context.user)
-        return [str(info.context.user.id)]
+        print("[subscribed to conversation]...", user)
+        info.context.chat_connection = True
+        # user.count_connection += 1
+        # user.is_online = True
+        # user.save()
+        return [str(user.id)]
 
     @staticmethod
     def publish(payload, info):
@@ -637,7 +658,6 @@ class MessageSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print(f"[subscribed to messaging]... <{user}>")
         chat = Conversation.objects.filter(id=chat_id, participants=user)
         if not chat:
             raise GraphQLError(
@@ -647,7 +667,9 @@ class MessageSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_chat"
                 }
             )
+        print(f"[subscribed to messaging]... <{user}> | {chat.last().id}")
         chat.last().connected.add(user)
+        info.context.chats = str(chat.last().id)
         return [chat_id]
 
     @staticmethod
@@ -692,13 +714,10 @@ class TypingSubscription(channels_graphql_ws.Subscription):
     """Simple GraphQL subscription."""
 
     # Subscription payload.
-    typing = graphene.Boolean()
-
-    class Arguments:
-        chat_id = graphene.ID()
+    chat_id = graphene.String()
 
     @staticmethod
-    def subscribe(root, info, chat_id):
+    def subscribe(root, info):
         """Called when user subscribes."""
         user = info.context.user
         if not user:
@@ -709,32 +728,15 @@ class TypingSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print(f"[subscribed to messaging]... <{user}>")
-        chat = Conversation.objects.filter(id=chat_id, participants=user)
-        if not chat:
-            raise GraphQLError(
-                message="No conversation found!",
-                extensions={
-                    "message": "No conversation found!",
-                    "code": "invalid_chat"
-                }
-            )
-        group = str(chat.last().id) + str(user.id)
-        # if info.context.chats:
-        #     print(info.context['chats'])
-        # else:
-        #     info.context.chats = "12345"
-        # print(info.context)
-        # print(root)
-        return [group]
+        print(f"[subscribed to typing]... <{user}>")
+        return [str(user.id)]
 
     @staticmethod
-    def publish(payload, info, chat_id):
+    def publish(payload, info):
         """Called to notify the client."""
         user = info.context.user
         print(f"[typing published]... <{user}>")
-        Conversation.objects.get(id=chat_id, participants=user)
-        return TypingSubscription(typing=payload)
+        return TypingSubscription(chat_id=payload)
 
 
 class Query(ConversationQuery, MessageQuery, graphene.ObjectType):
@@ -804,6 +806,7 @@ class Mutation(graphene.ObjectType):
     add_or_remove_offensive_word = OffensiveWordMutation.Field()
     add_or_remove_expression = REFormatMutation.Field()
     delete_messages = DeleteMessages.Field()
+    typing_mutation = TypingMutation.Field()
 
 
 class Subscription(graphene.ObjectType):
