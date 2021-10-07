@@ -276,6 +276,8 @@ class MessageQuery(graphene.ObjectType):
             unread_messages.update(is_read=True, updated_on=timezone.now())
             for msg in ChatMessage.objects.filter(id__in=message_data):
                 MessageSubscription.broadcast(payload=msg, group=str(conversation.id))
+            ChatSubscription.broadcast(payload=conversation, group=str(participant.id))
+            MessageCountSubscription.broadcast(payload=participant.unread_count, group=str(participant.id))
         return ChatMessage.objects.filter(conversation=conversation, is_deleted=False).exclude(deleted_from=participant)
 
     @is_client_request
@@ -314,7 +316,7 @@ class SendMessage(graphene.Mutation):
             for word in ClientOffensiveWords.objects.get(client=client).words.all():
                 if re.findall(str(word), message):
                     raise GraphQLError(
-                        message="Invalid input request.",
+                        message=f"Using '{word}' is prohibited.",
                         extensions={
                             "errors": {"message": f"Using '{word}' is prohibited."},
                             "code": "invalid_input"
@@ -326,7 +328,7 @@ class SendMessage(graphene.Mutation):
                 for expression in ClientREFormats.objects.get(client=client).expressions.all():
                     if (re.search(re.compile(expression.expression).pattern, word)):
                         raise GraphQLError(
-                            message="Invalid input request.",
+                            message=f"'{word}' sharing is prohibited.",
                             extensions={
                                 "errors": {"message": f"'{word}' sharing is prohibited."},
                                 "code": "invalid_input"
@@ -686,6 +688,55 @@ class MessageCountSubscription(channels_graphql_ws.Subscription):
         return MessageCountSubscription(count=payload)
 
 
+class TypingSubscription(channels_graphql_ws.Subscription):
+    """Simple GraphQL subscription."""
+
+    # Subscription payload.
+    typing = graphene.Boolean()
+
+    class Arguments:
+        chat_id = graphene.ID()
+
+    @staticmethod
+    def subscribe(root, info, chat_id):
+        """Called when user subscribes."""
+        user = info.context.user
+        if not user:
+            raise GraphQLError(
+                message="Invalid user!",
+                extensions={
+                    "message": "Invalid user!",
+                    "code": "invalid_user"
+                }
+            )
+        print(f"[subscribed to messaging]... <{user}>")
+        chat = Conversation.objects.filter(id=chat_id, participants=user)
+        if not chat:
+            raise GraphQLError(
+                message="No conversation found!",
+                extensions={
+                    "message": "No conversation found!",
+                    "code": "invalid_chat"
+                }
+            )
+        group = str(chat.last().id) + str(user.id)
+        # if info.context.chats:
+        #     print(info.context['chats'])
+        # else:
+        #     info.context.chats = "12345"
+        # print(info.context)
+        # print(root)
+        return [group]
+
+    @staticmethod
+    def publish(payload, info, chat_id):
+        """Called to notify the client."""
+        user = info.context.user
+        print(f"[typing published]... <{user}>")
+        Conversation.objects.get(id=chat_id, participants=user)
+        return TypingSubscription(typing=payload)
+
+
 class Query(ConversationQuery, MessageQuery, graphene.ObjectType):
     """
         define all the queries together
@@ -693,10 +744,20 @@ class Query(ConversationQuery, MessageQuery, graphene.ObjectType):
     participant_user = graphene.Field(ParticipantType)
     offensive_words = DjangoFilterConnectionField(OffensiveWordType)
     re_formats = DjangoFilterConnectionField(REFormatType)
+    message_typing = graphene.Boolean(chat_id=graphene.ID())
 
     @is_client_request
     def resolve_participant_user(self, info, **kwargs):
         return info.context.user
+
+    @is_client_request
+    def resolve_message_typing(self, info, chat_id, **kwargs):
+        user = info.context.user
+        conversation = Conversation.objects.get(id=chat_id)
+        TypingSubscription.broadcast(
+            payload=True, group=(str(conversation.id) + str(conversation.opposite_user(user).id))
+        )
+        return True
 
     @is_authenticated
     def resolve_offensive_words(self, info, **kwargs):
@@ -750,3 +811,4 @@ class Subscription(graphene.ObjectType):
     chat_subscription = ChatSubscription.Field()
     message_subscription = MessageSubscription.Field()
     message_count_subscription = MessageCountSubscription.Field()
+    typing_subscription = TypingSubscription.Field()

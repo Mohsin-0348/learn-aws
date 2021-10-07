@@ -65,14 +65,18 @@ def online_status_update(user, is_online=False):
 class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
 
     async def on_connect(self, payload):
-        print(self.scope)
+        # print(self.scope)
+        print(self.channel_receive.__sizeof__())
+        print(self.channel_receive)
         if not self.scope["user"] or self.scope['path'] != '/graphql/':
             await self.disconnect(payload)
         else:
+            # self.scope["chats"] = []
             print("[connected]...", f"<{self.scope['user'].id}>")
             await asyncio.get_event_loop().run_in_executor(None, online_status_update, self.scope["user"], True)
 
     async def disconnect(self, payload):
+        print(self.scope)
         if self.scope["user"]:
             await asyncio.get_event_loop().run_in_executor(None, online_status_update, self.scope["user"])
             print("[Disconnected]...", f"<{self.scope['user'].id}>")
