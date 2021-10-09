@@ -402,6 +402,7 @@ class DeleteMessages(graphene.Mutation):
                                                   is_deleted=False).exclude(deleted_from=participant)
             if for_all:
                 all_messages = messages.filter(is_read=False)
+                conversation = messages.last().conversation
                 if len(messages) != len(all_messages):
                     raise GraphQLError(
                         message="Invalid request.",
@@ -420,6 +421,9 @@ class DeleteMessages(graphene.Mutation):
                         }
                     )
                 all_messages.update(is_deleted=True)
+                ChatSubscription.broadcast(payload=conversation, group=str(conversation.opposite_user(participant).id))
+                MessageCountSubscription.broadcast(payload=conversation.opposite_user(participant).unread_count,
+                                                   group=str(conversation.opposite_user(participant).id))
             else:
                 for msg in messages:
                     msg.deleted_from.add(participant)
@@ -746,7 +750,6 @@ class TypingSubscription(channels_graphql_ws.Subscription):
                 }
             )
         print(f"[subscribed to typing]... <{user}>")
-        print(info.context)
         return [str(user.id)]
 
     @staticmethod

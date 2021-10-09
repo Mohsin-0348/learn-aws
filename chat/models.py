@@ -33,7 +33,7 @@ class Participant(models.Model):
         # ordering = ['-id']  # define default order as id in descending
 
     def __str__(self):
-        return f"{self.id}"
+        return f"{self.name} : {self.is_online}"
 
     @property
     def unread_count(self):
