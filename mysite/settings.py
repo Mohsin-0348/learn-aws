@@ -175,7 +175,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 DB_PREFIX = 'w3chat'
 
-# Cors origin
+# Cores origin
 CORS_ORIGIN_WHITELIST = [
     "http://localhost:3000",
 ]

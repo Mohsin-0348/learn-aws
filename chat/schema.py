@@ -70,6 +70,8 @@ class MessageType(DjangoObjectType):
         define django object type for message model
     """
     object_id = graphene.ID()
+    status = graphene.String()
+    delete_status = graphene.Boolean()
     receiver = graphene.Field(ParticipantType)
 
     class Meta:
@@ -82,6 +84,14 @@ class MessageType(DjangoObjectType):
     @staticmethod
     def resolve_object_id(self, info, **kwargs):
         return self.pk
+
+    @staticmethod
+    def resolve_status(self, info, **kwargs):
+        return self.status
+
+    @staticmethod
+    def resolve_delete_status(self, info, **kwargs):
+        return self.delete_status(info.context.user)
 
     @staticmethod
     def resolve_receiver(self, info, **kwargs):
@@ -280,7 +290,7 @@ class MessageQuery(graphene.ObjectType):
                 MessageSubscription.broadcast(payload=msg, group=str(conversation.id))
             ChatSubscription.broadcast(payload=conversation, group=str(participant.id))
             MessageCountSubscription.broadcast(payload=participant.unread_count, group=str(participant.id))
-        return ChatMessage.objects.filter(conversation=conversation, is_deleted=False).exclude(deleted_from=participant)
+        return ChatMessage.objects.filter(conversation=conversation)
 
     @is_client_request
     def resolve_message_count(self, info, **kwargs):
@@ -722,6 +732,10 @@ class MessageCountSubscription(channels_graphql_ws.Subscription):
                 }
             )
         print("[subscribed to count]...", user)
+        info.context.chat_connection = True
+        user.count_connection += 1
+        user.is_online = True
+        user.save()
         return [str(info.context.user.id)]
 
     @staticmethod

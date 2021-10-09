@@ -78,6 +78,7 @@ class ChatMessage(models.Model):
                                related_name='sent_messages')  # define sender of the message
     message = models.TextField()  # define message body
     is_read = models.BooleanField(default=False)  # if receiver user read the message or not
+    # is_delivered = models.BooleanField(default=False)  # if receiver user received the message or not
     is_deleted = models.BooleanField(default=False)  # if sender want to remove the message
     deleted_from = models.ManyToManyField(Participant)
     file = models.FileField(
@@ -102,6 +103,21 @@ class ChatMessage(models.Model):
     @property
     def receiver(self):
         return self.conversation.participants.exclude(id=self.sender.id).last()
+
+    @property
+    def status(self):
+        if self.is_read:
+            return "Seen"
+        # elif not self.is_read and self.is_delivered:
+        #     return "Delivered"
+        return "Sent"
+
+    def delete_status(self, user):
+        if self.is_deleted:
+            return True
+        elif user in self.deleted_from.all():
+            return True
+        return False
 
 
 class OffensiveWord(models.Model):
