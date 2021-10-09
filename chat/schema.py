@@ -211,6 +211,8 @@ class StartConversation(graphene.Mutation):
             chat.participants.add(participant, opposite_user)
 
             ChatSubscription.broadcast(payload=chat, group=str(participant.id))
+
+            # if opposite_user.is_online:
             ChatSubscription.broadcast(payload=chat, group=str(opposite_user.id))
         elif Conversation.objects.filter(participants=participant).filter(participants=opposite_user):
             raise GraphQLError(
@@ -344,6 +346,8 @@ class SendMessage(graphene.Mutation):
                                                group=str(chat_message.receiver.id))
         MessageSubscription.broadcast(payload=chat_message, group=str(chat.id))
         ChatSubscription.broadcast(payload=chat, group=str(sender.id))
+
+        # if chat_message.receiver.is_online:
         ChatSubscription.broadcast(payload=chat, group=str(chat_message.receiver.id))
         return SendMessage(success=True, message=chat_message)
 
@@ -361,6 +365,19 @@ class TypingMutation(graphene.Mutation):
         TypingSubscription.broadcast(
             payload=str(chat.id), group=str(chat.opposite_user(user).id)
         )
+        return TypingMutation(success=True)
+
+
+class UnsubscribeMutation(graphene.Mutation):
+    success = graphene.Boolean()
+
+    class Arguments:
+        chat_id = graphene.ID()
+
+    @is_client_request
+    def mutate(self, info, chat_id=None, **kwargs):
+        user = info.context.user
+        TypingSubscription.unsubscribe(group=str(user.id))
         return TypingMutation(success=True)
 
 
@@ -624,9 +641,9 @@ class ChatSubscription(channels_graphql_ws.Subscription):
             )
         print("[subscribed to conversation]...", user)
         info.context.chat_connection = True
-        # user.count_connection += 1
-        # user.is_online = True
-        # user.save()
+        user.count_connection += 1
+        user.is_online = True
+        user.save()
         return [str(user.id)]
 
     @staticmethod
@@ -729,6 +746,7 @@ class TypingSubscription(channels_graphql_ws.Subscription):
                 }
             )
         print(f"[subscribed to typing]... <{user}>")
+        print(info.context)
         return [str(user.id)]
 
     @staticmethod
@@ -807,6 +825,7 @@ class Mutation(graphene.ObjectType):
     add_or_remove_expression = REFormatMutation.Field()
     delete_messages = DeleteMessages.Field()
     typing_mutation = TypingMutation.Field()
+    unsubscribe = UnsubscribeMutation.Field()
 
 
 class Subscription(graphene.ObjectType):

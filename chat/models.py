@@ -24,7 +24,7 @@ class Participant(models.Model):
     user_id = models.CharField(max_length=128)  # will provided from client-app
     photo = models.ImageField(upload_to='participant_photo', blank=True, null=True)
     is_online = models.BooleanField(default=False)
-    # count_connection = models.PositiveIntegerField(default=0)
+    count_connection = models.PositiveIntegerField(default=0)
     last_seen = models.DateTimeField(auto_now=True)
 
     class Meta:

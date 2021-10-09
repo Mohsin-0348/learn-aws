@@ -54,12 +54,15 @@ class ChatConsumer(WebsocketConsumer):
 
 
 def online_status_update(user, connected=False, chat_id=None):
-    # if connected:
-    #     if user.count_connection > 0:
-    #         user.count_connection -= 1
-    #         if user.count_connection == 0:
-    #             user.is_online = False
-    #         user.save()
+    if connected:
+        if user.count_connection > 0:
+            user.count_connection -= 1
+            if user.count_connection == 0:
+                user.is_online = False
+            user.save()
+        else:
+            user.is_online = False
+            user.save()
     if chat_id:
         Conversation.objects.get(id=chat_id, participants=user).connected.remove(user)
 
@@ -67,7 +70,6 @@ def online_status_update(user, connected=False, chat_id=None):
 class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
 
     async def on_connect(self, payload):
-        # print(self.scope)
         if not self.scope["user"] or self.scope['path'] != '/graphql/':
             await self.disconnect(payload)
         else:
@@ -93,5 +95,17 @@ class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
         print(True)
         print(message)
         print(self.scope)
+        # if self.scope["user"]:
+        #     chat_connection = False
+        #     if self.scope["chat_connection"]:
+        #         chat_connection = True
+        #     if self.scope['chats']:
+        #         await asyncio.get_event_loop().run_in_executor(
+        #             None, online_status_update, self.scope["user"], chat_connection, self.scope['chats']
+        #         )
+        #     await asyncio.get_event_loop().run_in_executor(
+        #         None, online_status_update, self.scope["user"], chat_connection
+        #     )
+        #     print("[Unsubscribed]...", f"<{self.scope['user'].id}>")
 
     schema = schema
