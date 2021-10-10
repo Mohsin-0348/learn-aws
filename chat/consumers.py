@@ -5,8 +5,8 @@ import channels_graphql_ws
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
 
-from chat.models import Conversation
-from chat.schema import ChatSubscription
+from chat.models import ChatMessage, Conversation
+from chat.schema import ChatSubscription, MessageSubscription
 from mysite.schema import schema
 
 
@@ -54,6 +54,24 @@ class ChatConsumer(WebsocketConsumer):
         }))
 
 
+def deliver_message(user):
+    print(1, True)
+    messages = ChatMessage.objects.filter(
+        conversation__participants=user, is_delivered=False, is_read=False
+    ).exclude(sender=user)
+    print(messages)
+    for msg in messages:
+        print(msg.id)
+        msg.is_delivered = True
+        msg.save()
+        if msg == msg.conversation.last_message:
+            print(1, "okay")
+            ChatSubscription.broadcast(payload=msg.conversation, group=str(msg.sender.id))
+        if msg.sender in msg.conversation.connected.all():
+            print(2, "okay")
+            MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
+
+
 def send_data(user):
     for chat in Conversation.objects.filter(participants=user):
         ChatSubscription.broadcast(payload=chat, group=str(chat.opposite_user(user).id))
@@ -85,6 +103,9 @@ class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
             print("[connected]...", f"<{self.scope['user'].id}>")
             await asyncio.get_event_loop().run_in_executor(
                 None, send_data, self.scope["user"]
+            )
+            await asyncio.get_event_loop().run_in_executor(
+                None, deliver_message, self.scope["user"]
             )
 
     async def disconnect(self, payload):

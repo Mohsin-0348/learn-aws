@@ -59,7 +59,7 @@ class Conversation(BaseModel):
 
     @property
     def last_message(self):
-        return self.messages.filter(is_deleted=False).first()
+        return self.messages.first()
 
     def opposite_user(self, participant):
         return self.participants.exclude(id=participant.id).last()
@@ -78,7 +78,7 @@ class ChatMessage(models.Model):
                                related_name='sent_messages')  # define sender of the message
     message = models.TextField()  # define message body
     is_read = models.BooleanField(default=False)  # if receiver user read the message or not
-    # is_delivered = models.BooleanField(default=False)  # if receiver user received the message or not
+    is_delivered = models.BooleanField(default=False)  # if receiver user received the message or not
     is_deleted = models.BooleanField(default=False)  # if sender want to remove the message
     deleted_from = models.ManyToManyField(Participant)
     file = models.FileField(
@@ -108,8 +108,8 @@ class ChatMessage(models.Model):
     def status(self):
         if self.is_read:
             return "Seen"
-        # elif not self.is_read and self.is_delivered:
-        #     return "Delivered"
+        elif not self.is_read and self.is_delivered:
+            return "Delivered"
         return "Sent"
 
     def delete_status(self, user):

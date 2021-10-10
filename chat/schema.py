@@ -348,17 +348,19 @@ class SendMessage(graphene.Mutation):
                         )
 
         chat_message = ChatMessage.objects.create(conversation=chat, sender=sender, message=message, file=file)
-        if chat.connected.filter(id=chat_message.receiver.id):
-            chat_message.is_read = True
+        if chat_message.receiver.is_online:
+            chat_message.is_delivered = True
+            if chat_message.receiver in chat.connected.all():
+                chat_message.is_read = True
+            else:
+                MessageCountSubscription.broadcast(payload=chat_message.receiver.unread_count,
+                                                   group=str(chat_message.receiver.id))
             chat_message.save()
-        else:
-            MessageCountSubscription.broadcast(payload=chat_message.receiver.unread_count,
-                                               group=str(chat_message.receiver.id))
+            ChatSubscription.broadcast(payload=chat, group=str(chat_message.receiver.id))
+
         MessageSubscription.broadcast(payload=chat_message, group=str(chat.id))
         ChatSubscription.broadcast(payload=chat, group=str(sender.id))
 
-        # if chat_message.receiver.is_online:
-        ChatSubscription.broadcast(payload=chat, group=str(chat_message.receiver.id))
         return SendMessage(success=True, message=chat_message)
 
 
@@ -430,13 +432,27 @@ class DeleteMessages(graphene.Mutation):
                             "code": "invalid_request"
                         }
                     )
-                all_messages.update(is_deleted=True)
-                ChatSubscription.broadcast(payload=conversation, group=str(conversation.opposite_user(participant).id))
-                MessageCountSubscription.broadcast(payload=conversation.opposite_user(participant).unread_count,
-                                                   group=str(conversation.opposite_user(participant).id))
+
+                for msg in all_messages:
+                    msg.is_deleted = True
+                    msg.save()
+                    MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
+                    print(conversation.last_message)
+                    if msg == conversation.last_message:
+                        ChatSubscription.broadcast(
+                            payload=conversation, group=str(msg.receiver.id)
+                        )
+                        ChatSubscription.broadcast(
+                            payload=conversation, group=str(msg.sender.id)
+                        )
             else:
                 for msg in messages:
                     msg.deleted_from.add(participant)
+                    MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
+                    if msg == msg.conversation.last_message:
+                        ChatSubscription.broadcast(
+                            payload=msg.conversation, group=str(participant.id)
+                        )
         else:
             raise GraphQLError(
                 message="Invalid input request.",
@@ -653,7 +669,7 @@ class ChatSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print("[subscribed to conversation]...", user)
+        print(f"[subscribed to conversation]... <{user}>")
         info.context.chat_connection = True
         user.count_connection += 1
         user.is_online = True
@@ -663,7 +679,7 @@ class ChatSubscription(channels_graphql_ws.Subscription):
     @staticmethod
     def publish(payload, info):
         """Called to notify the client."""
-        print('[conversation published]...', info.context.user)
+        print(f"[conversation published]... <{info.context.user}>")
         return ChatSubscription(conversation=payload)
 
 
@@ -707,9 +723,9 @@ class MessageSubscription(channels_graphql_ws.Subscription):
     def publish(payload, info, chat_id):
         """Called to notify the client."""
         user = info.context.user
-        print(f"[message published]... <{user}>")
         chat = Conversation.objects.get(id=chat_id, participants=user)
         receiver = chat.participants.all().exclude(id=user.id).first()
+        print(f"[message published]... <{user}> | {chat.id}")
         return MessageSubscription(message=payload, receiver=receiver)
 
 
@@ -731,7 +747,7 @@ class MessageCountSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print("[subscribed to count]...", user)
+        print(f"[subscribed to count]... <{user}>")
         info.context.chat_connection = True
         user.count_connection += 1
         user.is_online = True
@@ -741,7 +757,7 @@ class MessageCountSubscription(channels_graphql_ws.Subscription):
     @staticmethod
     def publish(payload, info):
         """Called to notify the client."""
-        print('[count published]...', info.context.user)
+        print(f"[count published]... <{info.context.user}>")
         return MessageCountSubscription(count=payload)
 
 
