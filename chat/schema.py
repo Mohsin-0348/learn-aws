@@ -437,7 +437,6 @@ class DeleteMessages(graphene.Mutation):
                     msg.is_deleted = True
                     msg.save()
                     MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
-                    print(conversation.last_message)
                     if msg == conversation.last_message:
                         ChatSubscription.broadcast(
                             payload=conversation, group=str(msg.receiver.id)

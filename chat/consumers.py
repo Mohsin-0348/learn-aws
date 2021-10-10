@@ -55,20 +55,15 @@ class ChatConsumer(WebsocketConsumer):
 
 
 def deliver_message(user):
-    print(1, True)
     messages = ChatMessage.objects.filter(
         conversation__participants=user, is_delivered=False, is_read=False
     ).exclude(sender=user)
-    print(messages)
     for msg in messages:
-        print(msg.id)
         msg.is_delivered = True
         msg.save()
         if msg == msg.conversation.last_message:
-            print(1, "okay")
             ChatSubscription.broadcast(payload=msg.conversation, group=str(msg.sender.id))
         if msg.sender in msg.conversation.connected.all():
-            print(2, "okay")
             MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
 
 
