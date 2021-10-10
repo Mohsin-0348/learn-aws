@@ -22,7 +22,7 @@ from chat.models import Participant
 from mysite.middlewares import TokenMiddleware
 
 if Participant.objects.all():
-    Participant.objects.update(count_connection=0)
+    Participant.objects.update(count_connection=0, is_online=False)
 
 websocket_urlpatterns = [
     # re_path(r'chat/(?P<room_name>\w+)/$', consumers.ChatConsumer.as_asgi()),

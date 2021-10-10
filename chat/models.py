@@ -107,10 +107,10 @@ class ChatMessage(models.Model):
     @property
     def status(self):
         if self.is_read:
-            return "Seen"
+            return "seen"
         elif not self.is_read and self.is_delivered:
-            return "Delivered"
-        return "Sent"
+            return "delivered"
+        return "sent"
 
     def delete_status(self, user):
         if self.is_deleted:
