@@ -1,4 +1,3 @@
-
 import re
 
 import channels_graphql_ws
@@ -18,6 +17,7 @@ from chat.filters import (
     ClientOffensiveWordFilters,
     ClientREFormatFilters,
     ConversationFilters,
+    FavoriteMessageFilters,
     MessageFilters,
     OffensiveWordFilters,
     ParticipantFilters,
@@ -28,6 +28,7 @@ from chat.models import (
     ClientOffensiveWords,
     ClientREFormats,
     Conversation,
+    FavoriteMessage,
     OffensiveWord,
     Participant,
     REFormat,
@@ -71,7 +72,6 @@ class MessageType(DjangoObjectType):
     """
     object_id = graphene.ID()
     status = graphene.String()
-    delete_status = graphene.Boolean()
     receiver = graphene.Field(ParticipantType)
 
     class Meta:
@@ -88,10 +88,6 @@ class MessageType(DjangoObjectType):
     @staticmethod
     def resolve_status(self, info, **kwargs):
         return self.status
-
-    @staticmethod
-    def resolve_delete_status(self, info, **kwargs):
-        return self.delete_status(info.context.user)
 
     @staticmethod
     def resolve_receiver(self, info, **kwargs):
@@ -272,11 +268,17 @@ class MessageQuery(graphene.ObjectType):
     """
     all_messages = DjangoFilterConnectionField(MessageType)
     user_conversation_messages = DjangoFilterConnectionField(MessageType, chat_id=graphene.ID())
+    user_favorite_messages = DjangoFilterConnectionField(MessageType)
+    message_info = graphene.Field(MessageType, id=graphene.ID())
     message_count = graphene.Int()
 
     @is_admin_user
     def resolve_all_messages(self, info, **kwargs):
         return ChatMessage.objects.all()
+
+    @is_client_request
+    def resolve_message_info(self, info, id, **kwargs):
+        return ChatMessage.objects.get(id=id, conversation__participants=info.context.user)
 
     @is_client_request
     def resolve_user_conversation_messages(self, info, chat_id, **kwargs):
@@ -285,12 +287,18 @@ class MessageQuery(graphene.ObjectType):
         unread_messages = conversation.messages.filter(is_read=False, is_deleted=False).exclude(sender=participant)
         message_data = [obj.id for obj in unread_messages]
         if unread_messages:
-            unread_messages.update(is_read=True, updated_on=timezone.now())
+            unread_messages.update(is_read=True, read_on=timezone.now())
             for msg in ChatMessage.objects.filter(id__in=message_data):
                 MessageSubscription.broadcast(payload=msg, group=str(conversation.id))
             ChatSubscription.broadcast(payload=conversation, group=str(participant.id))
             MessageCountSubscription.broadcast(payload=participant.unread_count, group=str(participant.id))
-        return ChatMessage.objects.filter(conversation=conversation)
+        return ChatMessage.objects.filter(conversation=conversation).exclude(deleted_from=participant)
+
+    @is_client_request
+    def resolve_user_favorite_messages(self, info, **kwargs):
+        user = info.context.user
+        user_fav, created = FavoriteMessage.objects.get_or_create(participant=user)
+        return user_fav.messages.exclude(deleted_from=user)
 
     @is_client_request
     def resolve_message_count(self, info, **kwargs):
@@ -308,9 +316,10 @@ class SendMessage(graphene.Mutation):
         chat_id = graphene.ID()
         message = graphene.String(required=False)
         file = Upload(required=False)
+        reply_to = graphene.ID(required=False)
 
     @is_client_request
-    def mutate(self, info, chat_id, message=None, file=None, **kwargs):
+    def mutate(self, info, chat_id, message=None, file=None, reply_to=None, **kwargs):
         client = info.context.client
         sender = info.context.user
         chat = Conversation.objects.get(client=client, participants=sender, id=chat_id, is_blocked=False)
@@ -346,12 +355,17 @@ class SendMessage(graphene.Mutation):
                                 "code": "invalid_input"
                             }
                         )
-
-        chat_message = ChatMessage.objects.create(conversation=chat, sender=sender, message=message, file=file)
+        if reply_to:
+            reply_to = ChatMessage.objects.get(id=reply_to, conversation=chat, is_deleted=False)
+        chat_message = ChatMessage.objects.create(
+            conversation=chat, sender=sender, message=message, file=file, reply_to=reply_to
+        )
         if chat_message.receiver.is_online:
             chat_message.is_delivered = True
+            chat_message.delivered_on = timezone.now()
             if chat_message.receiver in chat.connected.all():
                 chat_message.is_read = True
+                chat_message.read_on = timezone.now()
             else:
                 MessageCountSubscription.broadcast(payload=chat_message.receiver.unread_count,
                                                    group=str(chat_message.receiver.id))
@@ -495,6 +509,55 @@ class BlockUserConversation(graphene.Mutation):
             success=True,
             message="Successfully unblocked" if unblock else "Successfully blocked",
             conversation=chat.first()
+        )
+
+
+class FavoriteMessageType(DjangoObjectType):
+    """
+        define django object type for message model
+    """
+    object_id = graphene.ID()
+
+    class Meta:
+        model = FavoriteMessage
+        filterset_class = FavoriteMessageFilters
+        interfaces = (graphene.relay.Node,)
+        convert_choices_to_enum = False
+        connection_class = CountConnection
+
+    @staticmethod
+    def resolve_object_id(self, info, **kwargs):
+        return self.pk
+
+
+class FavoriteMessageMutation(graphene.Mutation):
+    success = graphene.Boolean()
+    object = graphene.Field(MessageType)
+    message = graphene.String()
+
+    class Arguments:
+        message_id = graphene.ID()
+        add = graphene.Boolean()
+
+    @is_client_request
+    def mutate(self, info, message_id, add=True, **kwargs):
+        user = info.context.user
+        message_obj = ChatMessage.objects.get(id=message_id, conversation__participants=user)
+        user_favorite, created = FavoriteMessage.objects.get_or_create(participant=user)
+        if add:
+            user_favorite.messages.add(message_obj)
+        elif not add and user_favorite.messages.filter(id=message_id):
+            user_favorite.messages.remove(message_obj)
+        else:
+            raise GraphQLError(
+                message="Message not added yet to favorite.",
+                extensions={
+                    "errors": {"message": "Message not added yet to favorites."},
+                    "code": "invalid_action"
+                }
+            )
+        return FavoriteMessageMutation(
+            success=True, object=message_obj, message="Successfully added" if add else "Successfully removed"
         )
 
 
@@ -858,6 +921,7 @@ class Mutation(graphene.ObjectType):
     delete_messages = DeleteMessages.Field()
     typing_mutation = TypingMutation.Field()
     unsubscribe = UnsubscribeMutation.Field()
+    favorite_message_mutation = FavoriteMessageMutation.Field()
 
 
 class Subscription(graphene.ObjectType):

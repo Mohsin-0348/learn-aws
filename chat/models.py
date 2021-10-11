@@ -78,9 +78,12 @@ class ChatMessage(models.Model):
                                related_name='sent_messages')  # define sender of the message
     message = models.TextField()  # define message body
     is_read = models.BooleanField(default=False)  # if receiver user read the message or not
+    read_on = models.DateTimeField(blank=True, null=True)  # time of message seen
     is_delivered = models.BooleanField(default=False)  # if receiver user received the message or not
+    delivered_on = models.DateTimeField(blank=True, null=True)  # time of message delivery
     is_deleted = models.BooleanField(default=False)  # if sender want to remove the message
     deleted_from = models.ManyToManyField(Participant)
+    reply_to = models.ForeignKey('self', on_delete=models.DO_NOTHING, related_name="reply_for", null=True)
     file = models.FileField(
         upload_to="conversation/",
         blank=True,
@@ -91,12 +94,10 @@ class ChatMessage(models.Model):
     created_on = models.DateTimeField(
         auto_now_add=True
     )  # object creation time. will automatic generate
-    updated_on = models.DateTimeField(
-        auto_now=True
-    )  # object update time. will automatic generate
 
     class Meta:
         db_table = f"{settings.DB_PREFIX}_chat_messages"  # define table name for database
+        verbose_name = "Message"
         ordering = ['-created_on']  # define default order as created in descending
         get_latest_by = "created_on"  # define latest queryset by created
 
@@ -112,12 +113,14 @@ class ChatMessage(models.Model):
             return "delivered"
         return "sent"
 
-    def delete_status(self, user):
-        if self.is_deleted:
-            return True
-        elif user in self.deleted_from.all():
-            return True
-        return False
+
+class FavoriteMessage(models.Model):
+    participant = models.ForeignKey(Participant, on_delete=models.DO_NOTHING,
+                                    related_name='favorite_messages')  # define user who added favorite
+    messages = models.ManyToManyField(ChatMessage)
+
+    class Meta:
+        db_table = f"{settings.DB_PREFIX}_favorite_messages"  # define table name for database
 
 
 class OffensiveWord(models.Model):

@@ -5,14 +5,16 @@ from chat.models import (
     ClientOffensiveWords,
     ClientREFormats,
     Conversation,
+    FavoriteMessage,
     OffensiveWord,
     Participant,
     REFormat,
 )
 
+admin.site.register(Participant)
 admin.site.register(Conversation)
 admin.site.register(ChatMessage)
-admin.site.register(Participant)
+admin.site.register(FavoriteMessage)
 admin.site.register(OffensiveWord)
 admin.site.register(REFormat)
 admin.site.register(ClientOffensiveWords)

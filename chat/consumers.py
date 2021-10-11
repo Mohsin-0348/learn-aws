@@ -4,6 +4,7 @@ import json
 import channels_graphql_ws
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import WebsocketConsumer
+from django.utils import timezone
 
 from chat.models import ChatMessage, Conversation
 from chat.schema import ChatSubscription, MessageSubscription
@@ -56,10 +57,11 @@ class ChatConsumer(WebsocketConsumer):
 
 def deliver_message(user):
     messages = ChatMessage.objects.filter(
-        conversation__participants=user, is_delivered=False, is_read=False
+        conversation__participants=user, is_delivered=False, is_read=False, is_deleted=False
     ).exclude(sender=user)
     for msg in messages:
         msg.is_delivered = True
+        msg.delivered_on = timezone.now()
         msg.save()
         if msg == msg.conversation.last_message:
             ChatSubscription.broadcast(payload=msg.conversation, group=str(msg.sender.id))

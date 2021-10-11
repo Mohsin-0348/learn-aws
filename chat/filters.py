@@ -9,6 +9,7 @@ from .models import (
     ClientOffensiveWords,
     ClientREFormats,
     Conversation,
+    FavoriteMessage,
     OffensiveWord,
     Participant,
     REFormat,
@@ -33,6 +34,12 @@ class MessageFilters(BaseFilters):
     )
     created_on = django_filters.CharFilter(
         field_name='created_on__date', lookup_expr='exact'
+    )
+    delivered_on = django_filters.CharFilter(
+        field_name='delivered_on__date', lookup_expr='exact'
+    )
+    read_on = django_filters.CharFilter(
+        field_name='read_on__date', lookup_expr='exact'
     )
     start = django_filters.CharFilter(
         field_name='created_on__date', lookup_expr='gte'
@@ -194,4 +201,21 @@ class ClientREFormatFilters(BaseFilters):
             'id',
             'expressions',
             'client'
+        ]
+
+
+class FavoriteMessageFilters(BaseFilters):
+    """
+        Conversation filters will be defined here
+    """
+    participant = django_filters.CharFilter(
+        field_name='participant__user_id',
+        lookup_expr='exact'
+    )
+
+    class Meta:
+        model = FavoriteMessage
+        fields = [
+            'id',
+            'participant'
         ]
