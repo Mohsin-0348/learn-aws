@@ -731,11 +731,11 @@ class ChatSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print(f"[subscribed to conversation]... <{user}>")
         info.context.chat_connection = True
         user.count_connection += 1
         user.is_online = True
         user.save()
+        print(f"[subscribed to conversation]... <{user}>")
         return [str(user.id)]
 
     @staticmethod
@@ -776,9 +776,9 @@ class MessageSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_chat"
                 }
             )
-        print(f"[subscribed to messaging]... <{user}> | {chat.last().id}")
         chat.last().connected.add(user)
         info.context.chats = str(chat.last().id)
+        print(f"[subscribed to messaging]... <{user}> | {chat.last().id}")
         return [chat_id]
 
     @staticmethod
@@ -809,11 +809,11 @@ class MessageCountSubscription(channels_graphql_ws.Subscription):
                     "code": "invalid_user"
                 }
             )
-        print(f"[subscribed to count]... <{user}>")
         info.context.chat_connection = True
         user.count_connection += 1
         user.is_online = True
         user.save()
+        print(f"[subscribed to count]... <{user}>")
         return [str(info.context.user.id)]
 
     @staticmethod
@@ -920,8 +920,8 @@ class Mutation(graphene.ObjectType):
     add_or_remove_expression = REFormatMutation.Field()
     delete_messages = DeleteMessages.Field()
     typing_mutation = TypingMutation.Field()
-    unsubscribe = UnsubscribeMutation.Field()
     favorite_message_mutation = FavoriteMessageMutation.Field()
+    # unsubscribe = UnsubscribeMutation.Field()
 
 
 class Subscription(graphene.ObjectType):

@@ -1,7 +1,7 @@
-# at carbackend/backend/bases/models.py
+# at w3chat/backend/bases/models.py
 import uuid
 
-from django.core.validators import MinValueValidator
+# from django.core.validators import MinValueValidator
 from django.db import models
 
 

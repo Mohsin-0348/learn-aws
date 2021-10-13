@@ -97,7 +97,7 @@ class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
         else:
             self.scope["chats"] = ""
             self.scope["chat_connection"] = None
-            print("[connected]...", f"<{self.scope['user'].id}>")
+            print("[connected]...", f"<{self.scope['user']}>")
             await asyncio.get_event_loop().run_in_executor(
                 None, send_data, self.scope["user"]
             )
@@ -117,23 +117,23 @@ class MyGraphqlWsConsumer(channels_graphql_ws.GraphqlWsConsumer):
             await asyncio.get_event_loop().run_in_executor(
                 None, online_status_update, self.scope["user"], chat_connection
             )
-            print("[Disconnected]...", f"<{self.scope['user'].id}>")
+            print("[Disconnected]...", f"<{self.scope['user']}>")
 
-    async def unsubscribe(self, message):
-        print(True)
-        print(message)
-        print(self.scope)
-        # if self.scope["user"]:
-        #     chat_connection = False
-        #     if self.scope["chat_connection"]:
-        #         chat_connection = True
-        #     if self.scope['chats']:
-        #         await asyncio.get_event_loop().run_in_executor(
-        #             None, online_status_update, self.scope["user"], chat_connection, self.scope['chats']
-        #         )
-        #     await asyncio.get_event_loop().run_in_executor(
-        #         None, online_status_update, self.scope["user"], chat_connection
-        #     )
-        #     print("[Unsubscribed]...", f"<{self.scope['user'].id}>")
+    # async def unsubscribe(self, message):
+    #     print(True)
+    #     print(message)
+    #     print(self.scope)
+    #     # if self.scope["user"]:
+    #     #     chat_connection = False
+    #     #     if self.scope["chat_connection"]:
+    #     #         chat_connection = True
+    #     #     if self.scope['chats']:
+    #     #         await asyncio.get_event_loop().run_in_executor(
+    #     #             None, online_status_update, self.scope["user"], chat_connection, self.scope['chats']
+    #     #         )
+    #     #     await asyncio.get_event_loop().run_in_executor(
+    #     #         None, online_status_update, self.scope["user"], chat_connection
+    #     #     )
+    #     #     print("[Unsubscribed]...", f"<{self.scope['user'].id}>")
 
     schema = schema
