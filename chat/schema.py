@@ -73,6 +73,7 @@ class MessageType(DjangoObjectType):
     object_id = graphene.ID()
     status = graphene.String()
     receiver = graphene.Field(ParticipantType)
+    is_favorite = graphene.Boolean()
 
     class Meta:
         model = ChatMessage
@@ -92,6 +93,10 @@ class MessageType(DjangoObjectType):
     @staticmethod
     def resolve_receiver(self, info, **kwargs):
         return self.receiver
+
+    @staticmethod
+    def resolve_is_favorite(self, info, **kwargs):
+        return self.is_favorite(user=info.context.user)
 
 
 class ConversationType(DjangoObjectType):
@@ -182,8 +187,8 @@ class StartConversation(graphene.Mutation):
         opposite_username = graphene.String(required=True)
         friendly_name = graphene.String(required=False)
         identifier_id = graphene.String(required=False)
-        user_photo = Upload()
-        opposite_user_photo = Upload()
+        user_photo = graphene.String(required=False)
+        opposite_user_photo = graphene.String(required=False)
 
     @is_client_request
     def mutate(self, info, opposite_user_id, opposite_username, friendly_name=None, identifier_id=None,
@@ -206,8 +211,6 @@ class StartConversation(graphene.Mutation):
                 participants=participant).filter(participants=opposite_user, identifier_id=identifier_id):
             if opposite_username != opposite_user.name:
                 opposite_user.name = opposite_username
-                opposite_user.save()
-            if opposite_user_photo and opposite_user.photo != opposite_user_photo:
                 opposite_user.photo = opposite_user_photo
                 opposite_user.save()
             chat = Conversation.objects.create(
@@ -218,7 +221,6 @@ class StartConversation(graphene.Mutation):
 
             ChatSubscription.broadcast(payload=chat, group=str(participant.id))
 
-            # if opposite_user.is_online:
             ChatSubscription.broadcast(payload=chat, group=str(opposite_user.id))
         elif Conversation.objects.filter(participants=participant).filter(participants=opposite_user):
             raise GraphQLError(
@@ -251,7 +253,7 @@ class UpdatePhoto(graphene.Mutation):
     participant = graphene.Field(ParticipantType)
 
     class Arguments:
-        photo = Upload()
+        photo = graphene.String()
 
     @is_client_request
     def mutate(self, info, photo, **kwargs):
@@ -322,6 +324,7 @@ class SendMessage(graphene.Mutation):
     def mutate(self, info, chat_id, message=None, file=None, reply_to=None, **kwargs):
         client = info.context.client
         sender = info.context.user
+        today = timezone.now().date()
         chat = Conversation.objects.get(client=client, participants=sender, id=chat_id, is_blocked=False)
         if (not message or not message.strip()) and not file:
             raise GraphQLError(
@@ -357,6 +360,11 @@ class SendMessage(graphene.Mutation):
                         )
         if reply_to:
             reply_to = ChatMessage.objects.get(id=reply_to, conversation=chat, is_deleted=False)
+        if chat.last_message.created_on.date() != today:
+            ChatMessage.objects.create(
+                conversation=chat, sender=sender, message=str(today), message_type=ChatMessage.MessageType.DATE,
+                is_read=True
+            )
         chat_message = ChatMessage.objects.create(
             conversation=chat, sender=sender, message=message, file=file, reply_to=reply_to
         )

@@ -22,7 +22,7 @@ class Participant(models.Model):
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING)  # client-info
     name = models.CharField(max_length=128)  # will provided from client-app
     user_id = models.CharField(max_length=128)  # will provided from client-app
-    photo = models.ImageField(upload_to='participant_photo', blank=True, null=True)
+    photo = models.TextField(blank=True, null=True)
     is_online = models.BooleanField(default=False)
     count_connection = models.PositiveIntegerField(default=0)
     last_seen = models.DateTimeField(auto_now=True)
@@ -72,6 +72,10 @@ class ChatMessage(models.Model):
     """
         Store message of users for a conversation.
     """
+    class MessageType(models.TextChoices):
+        MESSAGE = 'message'
+        DATE = 'date'
+    message_type = models.CharField(max_length=10, choices=MessageType.choices, default=MessageType.MESSAGE)
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE,
                                      related_name='messages')  # define reference conversation for a message
     sender = models.ForeignKey(Participant, on_delete=models.DO_NOTHING,
@@ -104,6 +108,12 @@ class ChatMessage(models.Model):
     @property
     def receiver(self):
         return self.conversation.participants.exclude(id=self.sender.id).last()
+
+    def is_favorite(self, user):
+        user_fav, created = FavoriteMessage.objects.get_or_create(participant=user)
+        if user_fav.messages.filter(id=self.id):
+            return True
+        return False
 
     @property
     def status(self):

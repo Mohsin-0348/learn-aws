@@ -32,6 +32,10 @@ class MessageFilters(BaseFilters):
         field_name='sender__email',
         lookup_expr='icontains'
     )
+    message_type = django_filters.CharFilter(
+        field_name='message_type',
+        lookup_expr='exact'
+    )
     created_on = django_filters.CharFilter(
         field_name='created_on__date', lookup_expr='exact'
     )
@@ -56,7 +60,12 @@ class MessageFilters(BaseFilters):
             'message',
             'sender',
             'is_read',
-            'created_on'
+            'created_on',
+            'message_type',
+            'delivered_on',
+            'read_on',
+            'start',
+            'end'
         ]
 
 
@@ -92,7 +101,9 @@ class ConversationFilters(BaseFilters):
             'client',
             'created_on',
             'updated_on',
-            'is_blocked'
+            'is_blocked',
+            'start',
+            'end'
         ]
 
 
