@@ -63,7 +63,7 @@ def deliver_message(user):
         msg.is_delivered = True
         msg.delivered_on = timezone.now()
         msg.save()
-        if msg == msg.conversation.last_message:
+        if msg == msg.conversation.last_message and msg.sender.is_online:
             ChatSubscription.broadcast(payload=msg.conversation, group=str(msg.sender.id))
         if msg.sender in msg.conversation.connected.all():
             MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
@@ -71,7 +71,8 @@ def deliver_message(user):
 
 def send_data(user):
     for chat in Conversation.objects.filter(participants=user):
-        ChatSubscription.broadcast(payload=chat, group=str(chat.opposite_user(user).id))
+        if chat.opposite_user(user).is_online:
+            ChatSubscription.broadcast(payload=chat, group=str(chat.opposite_user(user).id))
 
 
 def online_status_update(user, connected=False, chat_id=None):
