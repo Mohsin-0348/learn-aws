@@ -211,6 +211,8 @@ class StartConversation(graphene.Mutation):
                 participants=participant).filter(participants=opposite_user, identifier_id=identifier_id):
             if opposite_username != opposite_user.name:
                 opposite_user.name = opposite_username
+                opposite_user.save()
+            if opposite_user.photo != opposite_user_photo:
                 opposite_user.photo = opposite_user_photo
                 opposite_user.save()
             chat = Conversation.objects.create(
