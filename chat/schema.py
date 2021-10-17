@@ -362,7 +362,7 @@ class SendMessage(graphene.Mutation):
                         )
         if reply_to:
             reply_to = ChatMessage.objects.get(id=reply_to, conversation=chat, is_deleted=False)
-        if chat.last_message.created_on.date() != today:
+        if not chat.messages.all() or chat.last_message.created_on.date() != today:
             ChatMessage.objects.create(
                 conversation=chat, sender=sender, message=str(today), message_type=ChatMessage.MessageType.DATE,
                 is_read=True
