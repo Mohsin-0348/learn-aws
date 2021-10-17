@@ -64,7 +64,6 @@ def deliver_message(user):
         msg.delivered_on = timezone.now()
         msg.save()
         if msg == msg.conversation.last_message and msg.sender.is_online:
-            print("from deliver-message")
             ChatSubscription.broadcast(payload=msg.conversation, group=str(msg.sender.id))
         if msg.sender in msg.conversation.connected.all():
             MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
