@@ -249,8 +249,8 @@ class UserOnlineMutation(graphene.Mutation):
         user = info.context.user
         if not user.is_online:
             user.save()
-            send_status_to_others(user.id)
-            deliver_message(user.id)
+            send_status_to_others.delay(user.id)
+            deliver_message.delay(user.id)
         else:
             user.save()
         return UserOnlineMutation(success=True)
