@@ -133,7 +133,6 @@ class ParticipantFilters(BaseFilters):
             'name',
             'user_id',
             'last_seen',
-            'is_online'
         ]
 
 

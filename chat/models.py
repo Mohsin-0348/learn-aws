@@ -1,8 +1,10 @@
+import datetime
 import uuid
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.utils import timezone
 
 from bases.models import BaseModel
 from chat.choices import RegexChoice
@@ -23,23 +25,26 @@ class Participant(models.Model):
     name = models.CharField(max_length=128)  # will provided from client-app
     user_id = models.CharField(max_length=128)  # will provided from client-app
     photo = models.TextField(blank=True, null=True)
-    is_online = models.BooleanField(default=False)
-    count_connection = models.PositiveIntegerField(default=0)
     last_seen = models.DateTimeField(auto_now=True)
+    # is_online = models.BooleanField(default=False)
+    # count_connection = models.PositiveIntegerField(default=0)
 
-    class Meta:
-        db_table = f"{settings.DB_PREFIX}_participants"  # define table name for database
-        unique_together = (('client', 'user_id'),)  # unique user of client
-        # ordering = ['-id']  # define default order as id in descending
-
-    def __str__(self):
-        return f"{self.name} : {self.is_online}"
+    @property
+    def is_online(self):
+        return timezone.now() < self.last_seen + datetime.timedelta(minutes=settings.OFFLINE_TIME_DELTA_MINUTES)
 
     @property
     def unread_count(self):
         return len(ChatMessage.objects.filter(
             is_read=False, conversation__participants=self, is_deleted=False
         ).exclude(sender=self))
+
+    def __str__(self):
+        return f"{self.name} : {self.is_online}"
+
+    class Meta:
+        db_table = f"{settings.DB_PREFIX}_participants"  # define table name for database
+        unique_together = (('client', 'user_id'),)  # unique user of client
 
 
 class Conversation(BaseModel):
@@ -49,10 +54,6 @@ class Conversation(BaseModel):
     participants = models.ManyToManyField(Participant)
     connected = models.ManyToManyField(Participant, related_name="connected_users")
     is_blocked = models.BooleanField(default=False)
-
-    class Meta:
-        ordering = ['-created_on']  # define default order as created in descending
-        db_table = f"{settings.DB_PREFIX}_conversations"  # define table name for database
 
     def __str__(self):
         return str(self.id)
@@ -66,6 +67,10 @@ class Conversation(BaseModel):
 
     def unread_count(self, participant):
         return len(self.messages.filter(is_read=False, is_deleted=False).exclude(sender=participant))
+
+    class Meta:
+        ordering = ['-created_on']  # define default order as created in descending
+        db_table = f"{settings.DB_PREFIX}_conversations"  # define table name for database
 
 
 class ChatMessage(models.Model):

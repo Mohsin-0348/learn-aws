@@ -18,14 +18,9 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mysite.settings')
 django.setup()
 
 from chat import consumers
-from chat.models import Participant
 from mysite.middlewares import TokenMiddleware
 
-if Participant.objects.all():
-    Participant.objects.update(count_connection=0, is_online=False)
-
 websocket_urlpatterns = [
-    # re_path(r'chat/(?P<room_name>\w+)/$', consumers.ChatConsumer.as_asgi()),
     path('graphql/', consumers.MyGraphqlWsConsumer.as_asgi()),
 ]
 
