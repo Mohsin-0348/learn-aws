@@ -30,8 +30,8 @@ from chat.subscription import (
     MessageCountSubscription,
     MessageSubscription,
     TypingSubscription,
+    UserSubscription,
 )
-from chat.tasks import deliver_message, send_status_to_others
 from mysite.permissions import is_authenticated, is_client_request
 from users.choices import IdentifierBaseChoice
 from users.models import Client
@@ -43,7 +43,10 @@ User = django.contrib.auth.get_user_model()
 
 class StartConversation(graphene.Mutation):
     """
-        create new chat information by a advertise
+        create new chat information by a advertise.
+        This will take opposite user id, username, photo nad user photo as parameter.
+        It may require friendly-name and identifier-id parameters also if client need identifier-based chat.
+        And will return success(True), a feedback and conversation object.
     """
     success = graphene.Boolean()
     message = graphene.String()
@@ -116,7 +119,9 @@ class StartConversation(graphene.Mutation):
 
 class UpdatePhoto(graphene.Mutation):
     """
-        add new message by chat id, message and file
+        Update user profile picture.
+        This will take user photo as parameter.
+        And will return success(True) and participant object.
     """
     success = graphene.Boolean()
     participant = graphene.Field(ParticipantType)
@@ -135,7 +140,10 @@ class UpdatePhoto(graphene.Mutation):
 
 class SendMessage(graphene.Mutation):
     """
-        add new message by chat id, message and file
+        Send message to other user.
+        This will take conversation-id, message and file field as parameter.
+        It may require reply-to parameter if user wants to reply for a specific message.
+        And will return success(True) and message object.
     """
     success = graphene.Boolean()
     message = graphene.Field(MessageType)
@@ -176,7 +184,7 @@ class SendMessage(graphene.Mutation):
             words = list(map(str, message.split()))
             for word in words:
                 for expression in ClientREFormats.objects.get(client=client).expressions.all():
-                    if (re.search(re.compile(expression.expression).pattern, word)):
+                    if re.search(re.compile(expression.expression).pattern, word):
                         raise GraphQLError(
                             message=f"'{word}' sharing is prohibited.",
                             extensions={
@@ -189,16 +197,14 @@ class SendMessage(graphene.Mutation):
         if not chat.messages.all() or chat.last_message.created_on.date() != today:
             ChatMessage.objects.create(
                 conversation=chat, sender=sender, message=str(today), message_type=ChatMessage.MessageType.DATE,
-                is_read=True
+                read_on=timezone.now()
             )
         chat_message = ChatMessage.objects.create(
             conversation=chat, sender=sender, message=message, file=file, reply_to=reply_to
         )
         if chat_message.receiver.is_online:
-            chat_message.is_delivered = True
             chat_message.delivered_on = timezone.now()
             if chat_message.receiver in chat.connected.all():
-                chat_message.is_read = True
                 chat_message.read_on = timezone.now()
             else:
                 MessageCountSubscription.broadcast(payload=chat_message.receiver.unread_count,
@@ -213,6 +219,12 @@ class SendMessage(graphene.Mutation):
 
 
 class TypingMutation(graphene.Mutation):
+    """
+        Send typing response to other user.
+        This will take conversation-id and recipient-id field as parameter.
+        And will return success(True) status.
+        Here the typing response will be broadcast.
+    """
     success = graphene.Boolean()
 
     class Arguments:
@@ -241,7 +253,32 @@ class UnsubscribeMutation(graphene.Mutation):
         return TypingMutation(success=True)
 
 
+def deliver_message(user_id):
+    """
+        Will deliver the message to user.
+        And sender will also get response by broadcasting.
+    """
+    user = Participant.objects.get(id=user_id)
+    messages = ChatMessage.objects.filter(
+        conversation__participants=user, delivered_on__isnull=True, read_on__isnull=True, is_deleted=False
+    ).exclude(sender=user)
+    for msg in messages:
+        msg.delivered_on = timezone.now()
+        # msg.save()
+        if msg == msg.conversation.last_message and msg.sender.is_online:
+            ChatSubscription.broadcast(payload=msg.conversation, group=str(msg.sender.id))
+        if msg.sender in msg.conversation.connected.all():
+            MessageSubscription.broadcast(payload=msg, group=str(msg.conversation.id))
+    ChatMessage.objects.bulk_update(messages, ['delivered_on'])
+
+
 class UserOnlineMutation(graphene.Mutation):
+    """
+        Update user info for online status.
+        Broadcast user object as he/she come online.
+        And also deliver the sent messages.
+        Will return success(true) status.
+    """
     success = graphene.Boolean()
 
     @is_client_request
@@ -249,18 +286,26 @@ class UserOnlineMutation(graphene.Mutation):
         user = info.context.user
         if not user.is_online:
             user.save()
-            send_status_to_others.delay(user.id)
-            deliver_message.delay(user.id)
+            UserSubscription.broadcast(payload=user, group="users-channel")
+            deliver_message(user.id)
         else:
             user.save()
         return UserOnlineMutation(success=True)
 
 
 class DeleteId(graphene.InputObjectType):
+    """
+        Define id filed for deleting.
+    """
     id = graphene.ID()
 
 
 class DeleteMessages(graphene.Mutation):
+    """
+        Delete user messages by multiple selection.
+        This will take message-id list and for-all field as parameter.
+        And will return success(true) if deleted.
+    """
     success = graphene.Boolean()
 
     class Arguments:
@@ -276,7 +321,7 @@ class DeleteMessages(graphene.Mutation):
             messages = ChatMessage.objects.filter(id__in=message_ids, conversation__participants=participant,
                                                   is_deleted=False).exclude(deleted_from=participant)
             if for_all:
-                all_messages = messages.filter(is_read=False)
+                all_messages = messages.filter(read_on__isnull=True)
                 conversation = messages.last().conversation
                 if len(messages) != len(all_messages):
                     raise GraphQLError(
@@ -328,7 +373,10 @@ class DeleteMessages(graphene.Mutation):
 
 class BlockUserConversation(graphene.Mutation):
     """
-        add new message by chat id, message and file
+        Block and unblock a user chat.
+        This will take conversation-id and unblock as parameter.
+        If unblock is true then the user chat will be unblocked.
+        And will return success(true), a feedback and conversation object.
     """
     success = graphene.Boolean()
     message = graphene.String()
@@ -362,8 +410,14 @@ class BlockUserConversation(graphene.Mutation):
 
 
 class FavoriteMessageMutation(graphene.Mutation):
+    """
+        Add or remove message from favorite.
+        This will take message-id and add fields as parameter.
+        If add field is false then the message will be removed from favorite.
+        And will return success(true), a feedback and message object.
+    """
     success = graphene.Boolean()
-    object = graphene.Field(MessageType)
+    fav_message = graphene.Field(MessageType)
     message = graphene.String()
 
     class Arguments:
@@ -388,21 +442,29 @@ class FavoriteMessageMutation(graphene.Mutation):
                 }
             )
         return FavoriteMessageMutation(
-            success=True, object=message_obj, message="Successfully added" if add else "Successfully removed"
+            success=True, fav_message=message_obj, message="Successfully added" if add else "Successfully removed"
         )
 
 
 class OffensiveWordMutation(graphene.Mutation):
+    """
+        Add or remove offense word from client-choice.
+        This will take word and remove fields as parameter.
+        If remove field is true then the word will be removed from choice.
+        Id will be used for update a word from admins only.
+        And will return success(true), a feedback and offense-word object.
+    """
     success = graphene.String()
     message = graphene.String()
-    object = graphene.Field(OffensiveWordType)
+    offense_word = graphene.Field(OffensiveWordType)
 
     class Arguments:
         word = graphene.String()
         remove = graphene.Boolean()
+        id = graphene.ID(required=False)
 
     @is_authenticated
-    def mutate(self, info, word, remove=False, **kwargs):
+    def mutate(self, info, word, remove=False, id=None, **kwargs):
         user = info.context.user
         if not word.strip():
             raise GraphQLError(
@@ -417,34 +479,46 @@ class OffensiveWordMutation(graphene.Mutation):
             client = Client.objects.get(admin=user)
             if remove:
                 word_client, added = ClientOffensiveWords.objects.get_or_create(client=client)
-                object = OffensiveWord.objects.get(word=word)
-                word_client.words.get(word=object.word)
-                word_client.words.remove(object)
+                offense_word = OffensiveWord.objects.get(word=word)
+                word_client.words.get(word=offense_word.word)
+                word_client.words.remove(offense_word)
                 message = "Successfully removed"
             else:
-                object, created = OffensiveWord.objects.get_or_create(word=word)
+                offense_word, created = OffensiveWord.objects.get_or_create(word=word)
                 word_client, added = ClientOffensiveWords.objects.get_or_create(client=client)
-                word_client.words.add(object)
+                word_client.words.add(offense_word)
         else:
-            object = OffensiveWord.objects.create(word=word)
+            if id:
+                offense_word = OffensiveWord.objects.filter(id=id)
+                offense_word.update(word=word)
+            else:
+                offense_word = OffensiveWord.objects.create(word=word)
         return OffensiveWordMutation(
             success=True,
             message=message,
-            object=object
+            offense_word=offense_word
         )
 
 
 class REFormatMutation(graphene.Mutation):
+    """
+        Add or remove offense word from client-choice.
+        This will take word and remove fields as parameter.
+        If remove field is true then the expression will be removed from choice.
+        Id will be used for update an expression from admins only.
+        And will return success(true), a feedback and re_format object.
+    """
     success = graphene.String()
     message = graphene.String()
-    object = graphene.Field(REFormatType)
+    re_format = graphene.Field(REFormatType)
 
     class Arguments:
+        id = graphene.ID(required=False)
         expression = graphene.String()
         remove = graphene.Boolean()
 
     @is_authenticated
-    def mutate(self, info, expression, remove=False, **kwargs):
+    def mutate(self, info, expression, remove=False, id=None, **kwargs):
         user = info.context.user
         if not expression.strip() or expression not in RegexChoice.choices:
             raise GraphQLError(
@@ -459,17 +533,21 @@ class REFormatMutation(graphene.Mutation):
             client = Client.objects.get(admin=user)
             if remove:
                 expression_client, added = ClientREFormats.objects.get_or_create(client=client)
-                object = REFormat.objects.get(expression=expression)
-                expression_client.words.get(expression=object.expression)
-                expression_client.expressions.remove(object)
+                re_format = REFormat.objects.get(expression=expression)
+                expression_client.words.get(expression=re_format.expression)
+                expression_client.expressions.remove(re_format)
                 message = "Successfully removed"
             else:
-                object, created = REFormat.objects.get_or_create(expression=expression)
+                re_format, created = REFormat.objects.get_or_create(expression=expression)
                 expression_client, added = ClientREFormats.objects.get_or_create(client=client)
-                expression_client.expressions.add(object)
+                expression_client.expressions.add(re_format)
         else:
-            object = REFormat.objects.create(expression=expression)
-        return REFormatMutation(success=True, object=object, message=message)
+            if id:
+                re_format = REFormat.objects.filter(id=id)
+                re_format.update(expression=expression)
+            else:
+                re_format = REFormat.objects.create(expression=expression)
+        return REFormatMutation(success=True, re_format=re_format, message=message)
 
 
 class Mutation(graphene.ObjectType):
@@ -485,5 +563,5 @@ class Mutation(graphene.ObjectType):
     delete_messages = DeleteMessages.Field()
     typing_mutation = TypingMutation.Field()
     favorite_message_mutation = FavoriteMessageMutation.Field()
-    unsubscribe = UnsubscribeMutation.Field()
+    unsubscribe_chatting = UnsubscribeMutation.Field()
     user_online = UserOnlineMutation.Field()

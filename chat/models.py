@@ -36,7 +36,7 @@ class Participant(models.Model):
     @property
     def unread_count(self):
         return len(ChatMessage.objects.filter(
-            is_read=False, conversation__participants=self, is_deleted=False
+            read_on__isnull=True, conversation__participants=self, is_deleted=False
         ).exclude(sender=self))
 
     def __str__(self):
@@ -47,12 +47,21 @@ class Participant(models.Model):
         unique_together = (('client', 'user_id'),)  # unique user of client
 
 
+class ConnectedParticipantConversation(models.Model):
+    participant = models.ForeignKey(Participant, on_delete=models.CASCADE, related_name='connected_conversation')
+    conversation = models.ForeignKey('chat.Conversation', on_delete=models.CASCADE,
+                                     related_name='connected_participants')
+    # connection_count = models.PositiveIntegerField(default=1)
+    connection_token = models.UUIDField()
+
+
 class Conversation(BaseModel):
     client = models.ForeignKey(Client, on_delete=models.DO_NOTHING)  # client-info
     friendly_name = models.CharField(max_length=128, blank=True, null=True)
     identifier_id = models.CharField(max_length=128, blank=True, null=True)
     participants = models.ManyToManyField(Participant)
-    connected = models.ManyToManyField(Participant, related_name="connected_users")
+    connected = models.ManyToManyField(Participant, related_name="connected_users",
+                                       through=ConnectedParticipantConversation)
     is_blocked = models.BooleanField(default=False)
 
     def __str__(self):
@@ -66,7 +75,7 @@ class Conversation(BaseModel):
         return self.participants.exclude(id=participant.id).last()
 
     def unread_count(self, participant):
-        return len(self.messages.filter(is_read=False, is_deleted=False).exclude(sender=participant))
+        return len(self.messages.filter(read_on__isnull=True, is_deleted=False).exclude(sender=participant))
 
     class Meta:
         ordering = ['-created_on']  # define default order as created in descending
@@ -86,9 +95,7 @@ class ChatMessage(models.Model):
     sender = models.ForeignKey(Participant, on_delete=models.DO_NOTHING,
                                related_name='sent_messages')  # define sender of the message
     message = models.TextField()  # define message body
-    is_read = models.BooleanField(default=False)  # if receiver user read the message or not
     read_on = models.DateTimeField(blank=True, null=True)  # time of message seen
-    is_delivered = models.BooleanField(default=False)  # if receiver user received the message or not
     delivered_on = models.DateTimeField(blank=True, null=True)  # time of message delivery
     is_deleted = models.BooleanField(default=False)  # if sender want to remove the message
     deleted_from = models.ManyToManyField(Participant)
@@ -122,9 +129,9 @@ class ChatMessage(models.Model):
 
     @property
     def status(self):
-        if self.is_read:
+        if self.read_on:
             return "seen"
-        elif not self.is_read and self.is_delivered:
+        elif not self.read_on and self.delivered_on:
             return "delivered"
         return "sent"
 

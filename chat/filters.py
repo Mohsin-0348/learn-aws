@@ -59,7 +59,6 @@ class MessageFilters(BaseFilters):
             'conversation',
             'message',
             'sender',
-            'is_read',
             'created_on',
             'message_type',
             'delivered_on',

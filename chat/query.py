@@ -13,6 +13,7 @@ from chat.models import (
     Conversation,
     FavoriteMessage,
     OffensiveWord,
+    Participant,
     REFormat,
 )
 from chat.object_types import (
@@ -26,7 +27,6 @@ from chat.subscription import (
     ChatSubscription,
     MessageCountSubscription,
     MessageSubscription,
-    TypingSubscription,
 )
 from mysite.permissions import is_admin_user, is_authenticated, is_client_request
 from users.models import Client
@@ -96,10 +96,11 @@ class MessageQuery(graphene.ObjectType):
     def resolve_user_conversation_messages(self, info, chat_id, **kwargs):
         participant = info.context.user
         conversation = Conversation.objects.get(id=chat_id, participants=participant)
-        unread_messages = conversation.messages.filter(is_read=False, is_deleted=False).exclude(sender=participant)
+        unread_messages = conversation.messages.filter(read_on__isnull=True,
+                                                       is_deleted=False).exclude(sender=participant)
         message_data = [obj.id for obj in unread_messages]
         if unread_messages:
-            unread_messages.update(is_read=True, read_on=timezone.now())
+            unread_messages.update(read_on=timezone.now())
             for msg in ChatMessage.objects.filter(id__in=message_data):
                 MessageSubscription.broadcast(payload=msg, group=str(conversation.id))
             ChatSubscription.broadcast(payload=conversation, group=str(participant.id))
@@ -123,22 +124,20 @@ class Query(ConversationQuery, MessageQuery, graphene.ObjectType):
         define all the queries together
     """
     participant_user = graphene.Field(ParticipantType)
+    is_user_online = graphene.Boolean(id=graphene.ID())
     offensive_words = DjangoFilterConnectionField(OffensiveWordType)
     re_formats = DjangoFilterConnectionField(REFormatType)
-    message_typing = graphene.Boolean(chat_id=graphene.ID())
 
     @is_client_request
     def resolve_participant_user(self, info, **kwargs):
         return info.context.user
 
     @is_client_request
-    def resolve_message_typing(self, info, chat_id, **kwargs):
-        user = info.context.user
-        conversation = Conversation.objects.get(id=chat_id)
-        TypingSubscription.broadcast(
-            payload=True, group=(str(conversation.id) + str(conversation.opposite_user(user).id))
-        )
-        return True
+    def resolve_is_user_online(self, info, id, **kwargs):
+        query_user = Participant.objects.get(id=id)
+        if query_user.is_online:
+            return True
+        return False
 
     @is_authenticated
     def resolve_offensive_words(self, info, **kwargs):
