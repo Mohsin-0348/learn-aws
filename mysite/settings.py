@@ -29,7 +29,7 @@ CLIENT_KEY = config('CLIENT_KEY', None)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', False)
 
-ALLOWED_HOSTS = [config("ALLOWED_HOSTS", None)]
+ALLOWED_HOSTS = [config("ALLOWED_HOSTS", None), 'py-django.ml']
 
 
 # Application definition
